@@ -9,15 +9,15 @@ function esc(v: string | number | undefined | null): string {
 }
 
 export function buildHoldingsCsv(rows: HoldingRow[]): string {
-  const header = ['Card', 'Set', 'Category', 'Grade', 'Market value (USD)', 'Cost (USD)', 'Unrealized P/L (USD)', 'Acquired', 'Storage'];
+  const header = ['カード名', 'セット', 'カテゴリ', '鑑定', '評価額(円)', '取得価格(円)', '含み損益(円)', '取得日', '保管場所'];
   const lines = [header.join(',')];
   for (const r of rows) {
     const pl = r.cost != null ? r.median - r.cost : '';
     lines.push([
-      esc(r.title), esc(r.setName), esc(r.tcg === 'mtg' ? 'MTG' : 'Pokemon'),
+      esc(r.title), esc(r.setName), esc(r.tcg === 'mtg' ? 'MTG' : 'ポケモン'),
       esc(r.grade),
-      esc(r.median.toFixed(2)), esc(r.cost != null ? r.cost.toFixed(2) : ''),
-      esc(pl === '' ? '' : (pl as number).toFixed(2)),
+      esc(Math.round(r.median)), esc(r.cost != null ? Math.round(r.cost) : ''),
+      esc(pl === '' ? '' : Math.round(pl as number)),
       esc(r.acquisitionDate ?? ''), esc(r.storage ?? ''),
     ].join(','));
   }
@@ -38,6 +38,6 @@ export async function exportHoldingsCsv(rows: HoldingRow[]): Promise<void> {
     a.remove();
     URL.revokeObjectURL(url);
   } else {
-    await Share.share({ message: csv, title: 'Catchstack collection (CSV)' });
+    await Share.share({ message: csv, title: 'Catchstackコレクション (CSV)' });
   }
 }

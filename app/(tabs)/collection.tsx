@@ -9,14 +9,18 @@ import { useHoldings } from '@/lib/state/useHoldings';
 import { useAlerts } from '@/lib/state/useAlerts';
 
 import { FEATURES } from '@/lib/features';
+import { fmtJPY } from '@/lib/format';
+// Filter values used for comparison against row.grade — keep in sync with
+// gradeFor()'s output. Labels shown in the UI are looked up via FILTER_LABEL.
 const GRADE_FILTERS = ['All grades', 'GEM MT 10', 'PSA 10', 'Has alert'] as const;
 const BARE_FILTERS = ['All', 'Has alert'] as const;
 const ACTIVE_FILTERS: readonly string[] = FEATURES.SHOW_GRADES ? GRADE_FILTERS : BARE_FILTERS;
+const FILTER_LABEL: Record<string, string> = {
+  'All grades': 'すべての鑑定', 'GEM MT 10': 'GEM MT 10', 'PSA 10': 'PSA 10', 'Has alert': 'アラート設定済', All: 'すべて',
+};
 const SORTS = ['Value', 'Name', 'Movers'] as const;
+const SORT_LABEL: Record<string, string> = { Value: '評価額', Name: '名前', Movers: '値動き' };
 
-function fmtUSD(n: number): string {
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
 
 export default function CollectionScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -43,13 +47,13 @@ export default function CollectionScreen() {
     else if (grade === 'PSA 10') r = r.filter((c) => c.grade === 'PSA 10');
     else if (grade === 'Has alert') r = r.filter((c) => alertCardIds.has(c.id));
     const sorted = [...r];
-    if (sort === 'Value') sorted.sort((a, b) => b.marketUsd - a.marketUsd);
+    if (sort === 'Value') sorted.sort((a, b) => b.marketJpy - a.marketJpy);
     else if (sort === 'Name') sorted.sort((a, b) => a.title.localeCompare(b.title));
     else sorted.sort((a, b) => b.dayPct - a.dayPct);
     return sorted;
   }, [all, category, search, grade, sort]);
 
-  const total = rows.reduce((s, c) => s + c.marketUsd, 0);
+  const total = rows.reduce((s, c) => s + c.marketJpy, 0);
   const screenW = Math.min(width, 440);
   const cellW = (screenW - 48 - 14 * (cols - 1)) / cols;
   const catLabel = CATEGORY_LABEL[category] || category;
@@ -59,12 +63,12 @@ export default function CollectionScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* top bar */}
         <View style={styles.topbar}>
-          <Text style={styles.title}>Collection</Text>
+          <Text style={styles.title}>コレクション</Text>
           <View style={styles.acts}>
-            <TouchableOpacity style={styles.iconbtn} activeOpacity={0.7} onPress={() => searchRef.current?.focus()} hitSlop={6} accessibilityRole="button" accessibilityLabel="Focus search">
+            <TouchableOpacity style={styles.iconbtn} activeOpacity={0.7} onPress={() => searchRef.current?.focus()} hitSlop={6} accessibilityRole="button" accessibilityLabel="検索にフォーカス">
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><G stroke={tokens.color.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><Circle cx="11" cy="11" r="7" /><Line x1="16.2" y1="16.2" x2="21" y2="21" /></G></Svg>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconbtn} activeOpacity={0.7} onPress={() => setCols((c) => (c === 2 ? 3 : 2))} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Switch to ${cols === 2 ? 'three' : 'two'} columns`}>
+            <TouchableOpacity style={styles.iconbtn} activeOpacity={0.7} onPress={() => setCols((c) => (c === 2 ? 3 : 2))} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${cols === 2 ? '3' : '2'}列表示に切り替え`}>
               {cols === 2 ? (
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><G stroke={tokens.color.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><Rect x="3" y="3" width="5" height="5" rx="1.2" /><Rect x="10" y="3" width="5" height="5" rx="1.2" /><Rect x="17" y="3" width="4" height="5" rx="1.2" /><Rect x="3" y="10" width="5" height="5" rx="1.2" /><Rect x="10" y="10" width="5" height="5" rx="1.2" /><Rect x="17" y="10" width="4" height="5" rx="1.2" /></G></Svg>
               ) : (
@@ -80,7 +84,7 @@ export default function CollectionScreen() {
           <TextInput
             ref={searchRef}
             style={styles.searchInput}
-            placeholder={FEATURES.SHOW_GRADES ? 'Search name, set, or cert…' : 'Search name or set…'}
+            placeholder={FEATURES.SHOW_GRADES ? 'カード名・セット・鑑定番号で検索…' : 'カード名・セットで検索…'}
             placeholderTextColor={tokens.color.textTertiary}
             value={search}
             onChangeText={setSearch}
@@ -103,7 +107,7 @@ export default function CollectionScreen() {
 
         {/* summary */}
         <Text style={styles.summary}>
-          <Text style={styles.summaryB}>{rows.length}</Text> cards · <Text style={styles.summaryB}>{fmtUSD(total)}</Text> total value
+          <Text style={styles.summaryB}>{rows.length}</Text>枚 · 評価額合計 <Text style={styles.summaryB}>{fmtJPY(total)}</Text>
         </Text>
 
         {/* grade filter + sort */}
@@ -113,14 +117,14 @@ export default function CollectionScreen() {
               const on = g === grade;
               return (
                 <TouchableOpacity key={g} style={[styles.chip, on && styles.chipOn]} activeOpacity={0.8} onPress={() => setGrade(g)}>
-                  <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{g}</Text>
+                  <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{FILTER_LABEL[g] ?? g}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
           <TouchableOpacity style={styles.sortBtn} activeOpacity={0.8} onPress={() => setSortIdx((i) => (i + 1) % SORTS.length)}>
-            <Text style={styles.sortLbl}>Sort:</Text>
-            <Text style={styles.sortVal}>{sort}</Text>
+            <Text style={styles.sortLbl}>並び替え:</Text>
+            <Text style={styles.sortVal}>{SORT_LABEL[sort] ?? sort}</Text>
             <Svg width={11} height={11} viewBox="0 0 12 12" fill="none"><Path d="M3 4.5L6 7.5L9 4.5" stroke="#1C1C1E" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" /></Svg>
           </TouchableOpacity>
         </View>
@@ -131,8 +135,8 @@ export default function CollectionScreen() {
             <View style={styles.emptyIcon}>
               <Svg width={26} height={26} viewBox="0 0 24 24" fill="none"><G stroke="#A1A1A6" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><Rect x="4" y="3" width="16" height="18" rx="2.2" /><Line x1="12" y1="9" x2="12" y2="15" /><Line x1="9" y1="12" x2="15" y2="12" /></G></Svg>
             </View>
-            <Text style={styles.emptyT}>{search.trim() ? 'No matching cards' : `No ${catLabel} cards yet`}</Text>
-            <Text style={styles.emptyS}>{search.trim() ? (FEATURES.SHOW_GRADES ? 'Try a different name, set, or cert number.' : 'Try a different name or set.') : `${catLabel} is supported — add one from the Add tab to start tracking it here.`}</Text>
+            <Text style={styles.emptyT}>{search.trim() ? '該当するカードがありません' : `${catLabel}のカードはまだありません`}</Text>
+            <Text style={styles.emptyS}>{search.trim() ? (FEATURES.SHOW_GRADES ? '別の名前・セット・鑑定番号でお試しください。' : '別の名前・セットでお試しください。') : `${catLabel}に対応しています — 追加タブからカードを登録してみましょう。`}</Text>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -146,8 +150,8 @@ export default function CollectionScreen() {
 
         {/* disclaimer */}
         <Text style={styles.disclaim}>
-          Reference market value · ungraded · TCGplayer via pokemontcg.io / Scryfall.{'\n'}
-          Prices are public ungraded reference values — not an appraisal.
+          参考販売価格 · 未鑑定 · 遊々亭(yuyu-tei.jp)の公開価格。{'\n'}
+          価格は公開されている未鑑定の参考相場であり、鑑定評価ではありません。
         </Text>
         <View style={{ height: tokens.space.xl }} />
       </ScrollView>

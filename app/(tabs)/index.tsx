@@ -6,15 +6,11 @@ import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme, useThemedStyles, type Theme } from '@/lib/design/theme';
 import { useDataset } from '@/lib/state/useDataset';
-import { useSettings } from '@/lib/state/useSettings';
 import { PortfolioChart } from '@/components/PortfolioChart';
 import { SlabCard } from '@/components/SlabCard';
 import { HoldingRow } from '@/components/HoldingRow';
 import type { HoldingRow as HoldingRowData } from '@/lib/state/store';
-
-function fmtUSD(n: number, withCents = false): string {
-  return '$' + n.toLocaleString('en-US', withCents ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
-}
+import { fmtJPY } from '@/lib/format';
 
 function buildTrending(rows: HoldingRowData[]): HoldingRowData[] {
   const sorted = [...rows].sort((a, b) => b.median - a.median);
@@ -37,13 +33,13 @@ function buildTrending(rows: HoldingRowData[]): HoldingRowData[] {
 function formatUpdated(rows: HoldingRowData[], pricesFetchedAt: number | null): string {
   if (pricesFetchedAt) {
     const s = Math.max(0, Math.floor((Date.now() - pricesFetchedAt) / 1000));
-    if (s < 60) return 'Updated just now';
+    if (s < 60) return 'たった今更新';
     const m = Math.floor(s / 60);
-    if (m < 60) return `Updated ${m}m ago`;
+    if (m < 60) return `${m}分前に更新`;
     const h = Math.floor(m / 60);
-    if (h < 24) return `Updated ${h}h ago`;
+    if (h < 24) return `${h}時間前に更新`;
     const d = Math.floor(h / 24);
-    return `Updated ${d}d ago`;
+    return `${d}日前に更新`;
   }
   // Fallback: no live cache yet — surface the bundled-snapshot date.
   let latest: Date | null = null;
@@ -54,31 +50,28 @@ function formatUpdated(rows: HoldingRowData[], pricesFetchedAt: number | null): 
     if (isNaN(d.getTime())) continue;
     if (!latest || d > latest) latest = d;
   }
-  if (!latest) return 'Reference data';
-  return 'Updated ' + latest.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  if (!latest) return '参考データ';
+  return latest.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', timeZone: 'UTC' }) + ' 更新';
 }
 
 export default function PortfolioScreen() {
   const styles = useThemedStyles(makeStyles);
   const tokens = useTheme();
   const { view, pricesFetchedAt } = useDataset();
-  const { currency } = useSettings();
   const { width } = useWindowDimensions();
 
   const trending = useMemo(() => (view ? buildTrending(view.rows) : []), [view]);
-  const updatedLabel = useMemo(() => (view ? formatUpdated(view.rows, pricesFetchedAt) : 'Loading…'), [view, pricesFetchedAt]);
+  const updatedLabel = useMemo(() => (view ? formatUpdated(view.rows, pricesFetchedAt) : '読み込み中…'), [view, pricesFetchedAt]);
 
   if (!view) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loading}><Text style={styles.loadingTxt}>Loading…</Text></View>
+        <View style={styles.loading}><Text style={styles.loadingTxt}>読み込み中…</Text></View>
       </SafeAreaView>
     );
   }
 
   const total = view.totalValue;
-  const whole = Math.floor(total);
-  const cents = Math.round((total - whole) * 100).toString().padStart(2, '0');
 
   // Day change computed the same way as the mockup (sum of value * dayPct).
   const dayUsd = view.rows.reduce((s, r) => s + (r.dayChangePct != null ? r.median * (r.dayChangePct / 100) : 0), 0);
@@ -103,42 +96,41 @@ export default function PortfolioScreen() {
             <Text style={styles.brandName}>Catchstack</Text>
           </View>
           <View style={styles.updated}>
-            <Text style={styles.usd}>{currency}</Text>
+            <Text style={styles.usd}>JPY</Text>
             <Text style={styles.ts}>{updatedLabel}</Text>
           </View>
         </View>
 
         {/* hero */}
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Total Value</Text>
+          <Text style={styles.eyebrow}>合計評価額</Text>
           <View style={styles.total}>
-            <Text style={styles.cur}>$</Text>
-            <Text style={styles.totalWhole}>{whole.toLocaleString('en-US')}</Text>
-            <Text style={styles.dec}>.{cents}</Text>
+            <Text style={styles.cur}>¥</Text>
+            <Text style={styles.totalWhole}>{Math.round(total).toLocaleString('ja-JP')}</Text>
           </View>
 
           <View style={[styles.daypill, { backgroundColor: dayUp ? tokens.color.gainBg : tokens.color.lossBg }]}>
             <Text style={[styles.arrow, { color: dayColor }]}>{dayUp ? '▲' : '▼'}</Text>
-            <Text style={[styles.daytxt, { color: dayColor }]}>{(dayUp ? '' : '-') + fmtUSD(Math.abs(dayUsd), true)}</Text>
+            <Text style={[styles.daytxt, { color: dayColor }]}>{(dayUp ? '' : '-') + fmtJPY(Math.abs(dayUsd))}</Text>
             <View style={[styles.daydot, { backgroundColor: dayColor }]} />
-            <Text style={[styles.daytxt, { color: dayColor }]}>{(dayUp ? '+' : '') + dayPct.toFixed(2)}% today</Text>
+            <Text style={[styles.daytxt, { color: dayColor }]}>{(dayUp ? '+' : '') + dayPct.toFixed(2)}% 本日</Text>
           </View>
 
           {/* stats box */}
           <View style={styles.statsShadow}>
             <View style={styles.statsGrid}>
               <View style={styles.stat}>
-                <Text style={styles.statK}>Cost Basis</Text>
-                <Text style={styles.statV}>{fmtUSD(view.costBasis)}</Text>
+                <Text style={styles.statK}>取得価額</Text>
+                <Text style={styles.statV}>{fmtJPY(view.costBasis)}</Text>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statK}>Unrealized P/L</Text>
+                <Text style={styles.statK}>含み損益</Text>
                 <Text style={[styles.statV, { color: view.unrealizedPnl >= 0 ? tokens.color.gain : tokens.color.loss }]}>
-                  {(view.unrealizedPnl >= 0 ? '+' : '-') + fmtUSD(Math.abs(view.unrealizedPnl))}
+                  {(view.unrealizedPnl >= 0 ? '+' : '-') + fmtJPY(Math.abs(view.unrealizedPnl))}
                 </Text>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statK}>Holdings</Text>
+                <Text style={styles.statK}>保有枚数</Text>
                 <Text style={styles.statV}>{view.rows.length}</Text>
               </View>
             </View>
@@ -146,7 +138,7 @@ export default function PortfolioScreen() {
 
           {/* portfolio health */}
           <TouchableOpacity style={styles.health} activeOpacity={0.7} onPress={() => router.push('/insights')}>
-            <Text style={styles.healthTxt}>Portfolio health</Text>
+            <Text style={styles.healthTxt}>ポートフォリオの状況</Text>
             <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
               <Path d="M6 4l4 4-4 4" stroke="#A1A1A6" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -160,9 +152,9 @@ export default function PortfolioScreen() {
 
         {/* trending */}
         <View style={styles.sec}>
-          <Text style={styles.secTitle}>Trending <Text style={styles.secSubtle}>— top market value</Text></Text>
+          <Text style={styles.secTitle}>注目のカード <Text style={styles.secSubtle}>— 評価額が高い順</Text></Text>
           <TouchableOpacity activeOpacity={0.6} onPress={() => router.push('/collection')}>
-            <Text style={styles.secMore}>See all</Text>
+            <Text style={styles.secMore}>すべて見る</Text>
           </TouchableOpacity>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
@@ -173,8 +165,8 @@ export default function PortfolioScreen() {
 
         {/* holdings */}
         <View style={styles.sec}>
-          <Text style={styles.secTitle}>Your holdings</Text>
-          <Text style={styles.secMore}>Value</Text>
+          <Text style={styles.secTitle}>所有カード</Text>
+          <Text style={styles.secMore}>評価額</Text>
         </View>
         <View style={styles.list}>
           {view.rows.map((row, i) => (
@@ -184,9 +176,9 @@ export default function PortfolioScreen() {
 
         {/* disclaimer */}
         <Text style={styles.disclaim}>
-          Reference market value · ungraded · TCGplayer via pokemontcg.io / Scryfall.{'\n'}
-          Only the current price is live — the chart shape is illustrative.{'\n'}
-          Prices are public ungraded reference values — not an appraisal.
+          参考販売価格 · 未鑑定 · 遊々亭(yuyu-tei.jp)の公開価格。{'\n'}
+          現在価格のみライブ取得 — グラフの形状はイメージです。{'\n'}
+          価格は公開されている未鑑定の参考相場であり、鑑定評価ではありません。
         </Text>
 
         <View style={{ height: tokens.space.xl }} />

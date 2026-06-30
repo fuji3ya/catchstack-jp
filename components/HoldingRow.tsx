@@ -8,15 +8,12 @@ import { PriceChart } from '@/components/PriceChart';
 import { catMeta } from '@/lib/design/cardPresentation';
 import { FEATURES } from '@/lib/features';
 import type { HoldingRow as HoldingRowData } from '@/lib/state/store';
+import { fmtJPY as formatMoney } from '@/lib/format';
 
 interface HoldingRowProps {
   row: HoldingRowData;
   isLast?: boolean;
   listWidth?: number;
-}
-
-function formatMoney(val: number): string {
-  return '$' + Math.round(val).toLocaleString('en-US');
 }
 
 function formatPct(val: number | null): string {
@@ -82,7 +79,7 @@ export function HoldingRow({ row, isLast }: HoldingRowProps) {
         <View style={styles.main}>
           <View style={styles.gradeRow}>
             {FEATURES.SHOW_GRADES ? (
-              <Text style={styles.grade}>{row.grade ? row.grade.toUpperCase() : 'UNGRADED'}</Text>
+              <Text style={styles.grade}>{row.grade ? row.grade.toUpperCase() : '未鑑定'}</Text>
             ) : null}
             <View style={styles.cat}>
               <View style={[styles.cdot, { backgroundColor: cat.dot }]} />

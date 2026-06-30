@@ -43,8 +43,8 @@ export function useAlertEngine(): void {
       if (!hit) continue;
       const ev = recordTriggered(alert.id, alert.catalogItemId, detail);
       if (ev) {
-        const name = TITLE_BY_ID[alert.catalogItemId] ?? 'A card';
-        notifyTriggered('Catchstack price alert', `${name} — ${detail}`);
+        const name = TITLE_BY_ID[alert.catalogItemId] ?? 'カード';
+        notifyTriggered('Catchstack 価格アラート', `${name} — ${detail}`);
       }
     }
     // Re-evaluate whenever alerts or live prices change.

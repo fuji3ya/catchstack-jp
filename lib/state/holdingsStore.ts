@@ -1,6 +1,6 @@
 // Global, persisted store of the user's owned holdings.
 // Lightweight external store (useSyncExternalStore) — no extra deps.
-// Seeds with the top-8 cards (Portfolio total $18,135.82) on first run,
+// Seeds with the top-8 cards (Portfolio total ¥39,140) on first run,
 // then persists every change to AsyncStorage so added cards survive restarts.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SEED_CARDS } from '@/lib/data/seedCards';
@@ -21,14 +21,14 @@ export interface UserHolding {
 const KEY = 'catchstack.holdings.v2';
 
 function seedHoldings(): UserHolding[] {
-  const top8 = [...SEED_CARDS].sort((a, b) => b.marketUsd - a.marketUsd).slice(0, 8);
+  const top8 = [...SEED_CARDS].sort((a, b) => b.marketJpy - a.marketJpy).slice(0, 8);
   return top8.map((c, idx) => ({
     id: `hold_${c.id}`,
     catalogItemId: c.id,
     grade: gradeFor(c.id),
-    cost: Math.round(c.marketUsd * 0.348),
+    cost: Math.round(c.marketJpy * 0.348),
     acquisitionDate: '2024-08-01',
-    storage: idx % 3 === 0 ? 'Safe' : 'Binder A',
+    storage: idx % 3 === 0 ? '金庫' : 'バインダーA',
     addedAt: '2026-06-01',
   }));
 }

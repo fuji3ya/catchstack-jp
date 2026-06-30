@@ -1,29 +1,26 @@
-// Live ungraded reference prices from free public catalogs.
-//  - Pokémon: pokemontcg.io  (card id is the pokemontcg.io id, e.g. "swsh7-215")
-//  - Magic:   Scryfall       (card uuid is embedded in the bundled image URL)
+// Live ungraded reference prices — 遊々亭 (yuyu-tei.jp) sell prices, JPY.
 //
 // These are PUBLIC, UNGRADED market figures — exactly what the app presents as
 // "reference value" (never an appraisal). They replace the bundled snapshot when
 // a live fetch succeeds, and fall back to the bundled price on any failure or
 // offline. Results are cached in AsyncStorage for a few hours so the app is fast
-// and we stay polite to the upstream APIs.
+// and we stay polite to the upstream price worker (catchstack-jp.starving-effort.com,
+// which itself daily-caches yuyu-tei — see apps/catchstack-jp-worker/).
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SEED_CARDS } from '@/lib/data/seedCards';
 
 const CACHE_KEY = 'catchstack.prices.v1';
 const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const PRICE_WORKER = 'https://catchstack-jp.starving-effort.com/';
 
 export type PriceMap = Record<string, number>;
 interface CacheShape { fetchedAt: number; prices: PriceMap }
 
 const CARD_BY_ID = Object.fromEntries(SEED_CARDS.map((c) => [c.id, c]));
 
-// Scryfall card id is the uuid in the image URL:
-//   https://cards.scryfall.io/large/front/2/5/25b0b816-....jpg?...
-function scryfallUuid(imageUrl: string): string | null {
-  const m = imageUrl.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\./i);
-  return m ? m[1] : null;
+function normNumber(n: string | undefined): string {
+  return (n ?? '').split('/')[0].replace(/^0+/, '') || '0';
 }
 
 // ---- cache ---------------------------------------------------------------
@@ -67,86 +64,44 @@ async function writeCache(prices: PriceMap): Promise<void> {
   }
 }
 
-// ---- upstream fetchers ---------------------------------------------------
+// ---- upstream fetcher -----------------------------------------------------
 
-function pickPokemonPrice(card: any): number | null {
-  // Prefer TCGplayer market across whatever printing variant exists.
-  const tp = card?.tcgplayer?.prices;
-  if (tp && typeof tp === 'object') {
-    const order = ['holofoil', 'normal', 'reverseHolofoil', '1stEditionHolofoil', '1stEdition', 'unlimitedHolofoil'];
-    const variants = [...order.filter((k) => tp[k]), ...Object.keys(tp).filter((k) => !order.includes(k))];
-    for (const v of variants) {
-      const p = tp[v]?.market ?? tp[v]?.mid ?? tp[v]?.high;
-      if (typeof p === 'number' && p > 0) return p;
-    }
-  }
-  // Fallback to Cardmarket (EUR-ish, but treated as a reference figure).
-  const cm = card?.cardmarket?.prices;
-  const cmp = cm?.averageSellPrice ?? cm?.trendPrice ?? cm?.avg7;
-  if (typeof cmp === 'number' && cmp > 0) return cmp;
-  return null;
-}
-
-async function fetchPokemon(ids: string[]): Promise<PriceMap> {
+// Fetch 遊々亭 sell prices for the given seed-card ids, one worker query per
+// distinct card name (the worker returns every printing under that name; we
+// pick the exact one by number, same precision rule as cardSearch.ts).
+async function fetchYuyutei(ids: string[]): Promise<PriceMap> {
   if (!ids.length) return {};
   const out: PriceMap = {};
-  // pokemontcg.io supports OR queries; chunk to keep URLs sane.
-  const chunkSize = 12;
-  for (let i = 0; i < ids.length; i += chunkSize) {
-    const chunk = ids.slice(i, i + chunkSize);
-    const q = chunk.map((id) => `id:${id}`).join(' OR ');
-    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&select=id,cardmarket,tcgplayer`;
-    try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) continue;
-      const json = await res.json();
-      for (const card of json?.data ?? []) {
-        const price = pickPokemonPrice(card);
-        if (card?.id && price != null) out[card.id] = price;
-      }
-    } catch {
-      /* skip chunk on failure */
-    }
+  // De-dupe by name so two printings sharing a card name don't double-fetch.
+  const byName = new Map<string, string[]>();
+  for (const id of ids) {
+    const card = CARD_BY_ID[id];
+    if (!card) continue;
+    const list = byName.get(card.name) ?? [];
+    list.push(id);
+    byName.set(card.name, list);
   }
-  return out;
-}
 
-async function fetchScryfall(seedIds: string[]): Promise<PriceMap> {
-  if (!seedIds.length) return {};
-  // Map seed id -> scryfall uuid and back.
-  const uuidToSeed: Record<string, string> = {};
-  const identifiers: { id: string }[] = [];
-  for (const seedId of seedIds) {
-    const card = CARD_BY_ID[seedId];
-    const uuid = card?.image ? scryfallUuid(card.image) : null;
-    if (uuid) {
-      uuidToSeed[uuid] = seedId;
-      identifiers.push({ id: uuid });
-    }
-  }
-  if (!identifiers.length) return {};
-  const out: PriceMap = {};
-  // Scryfall /cards/collection accepts up to 75 identifiers per POST.
-  for (let i = 0; i < identifiers.length; i += 75) {
-    const batch = identifiers.slice(i, i + 75);
-    try {
-      const res = await fetch('https://api.scryfall.com/cards/collection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ identifiers: batch }),
-      });
-      if (!res.ok) continue;
-      const json = await res.json();
-      for (const card of json?.data ?? []) {
-        const seedId = uuidToSeed[card?.id];
-        const usd = card?.prices?.usd ?? card?.prices?.usd_foil ?? card?.prices?.usd_etched;
-        const num = usd != null ? parseFloat(usd) : NaN;
-        if (seedId && !isNaN(num) && num > 0) out[seedId] = num;
+  await Promise.all(
+    Array.from(byName.entries()).map(async ([name, cardIds]) => {
+      try {
+        const res = await fetch(`${PRICE_WORKER}?q=${encodeURIComponent(name)}`, {
+          headers: { 'User-Agent': 'Catchstack-JP/1.0', Accept: 'application/json' },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const cards = (json?.cards ?? []) as Array<{ name?: string; number?: string; sellJpy?: number }>;
+        for (const cardId of cardIds) {
+          const seed = CARD_BY_ID[cardId];
+          if (!seed) continue;
+          const hit = cards.find((c) => c.name === name && normNumber(c.number) === normNumber(seed.number));
+          if (hit?.sellJpy) out[cardId] = hit.sellJpy;
+        }
+      } catch {
+        /* skip this name on failure */
       }
-    } catch {
-      /* skip batch on failure */
-    }
-  }
+    })
+  );
   return out;
 }
 
@@ -160,20 +115,8 @@ export async function fetchLivePrices(ids: string[]): Promise<PriceMap> {
     return cache.prices;
   }
 
-  const pokemonIds: string[] = [];
-  const mtgIds: string[] = [];
-  for (const id of ids) {
-    const card = CARD_BY_ID[id];
-    if (!card) continue;
-    if (card.category === 'MTG') mtgIds.push(id);
-    else pokemonIds.push(id);
-  }
-
-  const [pkmn, mtg] = await Promise.all([fetchPokemon(pokemonIds), fetchScryfall(mtgIds)]);
-  const fresh: PriceMap = { ...(cache?.prices ?? {}), ...pkmn, ...mtg };
-  // Only persist if we actually got something new, so a total outage doesn't
-  // wipe a previously-good cache.
-  if (Object.keys(pkmn).length || Object.keys(mtg).length) {
+  const fresh = { ...(cache?.prices ?? {}), ...(await fetchYuyutei(ids)) };
+  if (Object.keys(fresh).length) {
     await writeCache(fresh);
   }
   return fresh;

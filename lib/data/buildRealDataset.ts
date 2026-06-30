@@ -10,6 +10,7 @@ import type { CatalogItem, Holding, PricePoint } from '@/lib/domain/types';
 import type { UserHolding } from '@/lib/state/holdingsStore';
 import { SEED_CARDS } from '@/lib/data/seedCards';
 import { resolveCard } from '@/lib/data/catalog';
+import { cleanName } from '@/lib/design/cardPresentation';
 
 // Mulberry32 deterministic PRNG.
 function rng(seed: number) {
@@ -25,18 +26,6 @@ function hashStr(s: string): number {
   let h = 0;
   for (const c of s) h = (h * 131 + c.charCodeAt(0)) >>> 0;
   return h;
-}
-
-// Strip replacement chars / star glyphs / stray symbols (e.g. δ), keep clean text.
-function cleanName(raw: string): string {
-  return String(raw)
-    .replace(/�/g, '')
-    .replace(/[★☆✰✧]/g, '') // ★ ☆ ✰ ✧
-    .replace(/[^\w &.,'\-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/[\s'.\-]+$/, '')
-    .replace(/^[\s'.,\-]+/, '')
-    .trim();
 }
 
 // Small plausible per-card day move (deterministic by id): ~ -3.2% .. +4.2%.
@@ -112,7 +101,7 @@ export interface CardSnapshot {
 export function buildCardSnapshot(cardId: string, priceOverrides: Record<string, number> = {}): CardSnapshot | null {
   const card = resolveCard(cardId);
   if (!card) return null;
-  const price = priceOverrides[card.id] ?? card.marketUsd;
+  const price = priceOverrides[card.id] ?? card.marketJpy;
   const day = dayMove(card.id);
   const history = synthHistory(card.id, price, day, 90);
   const medians = history.map((p) => p.median);
@@ -135,7 +124,7 @@ export function buildDatasetFromHoldings(
     .map((h) => ({ h, card: resolveCard(h.catalogItemId) }))
     .filter((x): x is { h: UserHolding; card: (typeof SEED_CARDS)[number] } => !!x.card);
   // Display order: by market value desc (highest-value slabs lead).
-  enriched.sort((a, b) => b.card.marketUsd - a.card.marketUsd);
+  enriched.sort((a, b) => b.card.marketJpy - a.card.marketJpy);
 
   const catalog: CatalogItem[] = [];
   const holdings: Holding[] = [];
@@ -145,7 +134,7 @@ export function buildDatasetFromHoldings(
     const tcg = card.category === 'MTG' ? 'mtg' : 'pokemon';
     const day = dayMove(card.id);
     // Live market price when available, else the bundled snapshot.
-    const refPrice = priceOverrides[card.id] ?? card.marketUsd;
+    const refPrice = priceOverrides[card.id] ?? card.marketJpy;
 
     // History keyed per catalog card (duplicates of the same card share one).
     if (!history[card.id]) {
@@ -155,14 +144,14 @@ export function buildDatasetFromHoldings(
     }
 
     catalog.push({
-      id: card.id, tcg, language: 'English', title: cleanName(card.name), year: '',
+      id: card.id, tcg, language: '日本語', title: cleanName(card.name), year: '',
       setName: card.set, cardNumber: card.number, gradingCompany: 'psa', grade: h.grade,
       canonicalKey: card.id, metadataSource: 'seed', imageUrl: h.frontImageUrl ?? card.image,
     });
 
     holdings.push({
       id: h.id, certificationId: `cert_${card.id}`, catalogItemId: card.id,
-      acquisitionPrice: h.cost, acquisitionCurrency: 'USD', acquisitionDate: h.acquisitionDate,
+      acquisitionPrice: h.cost, acquisitionCurrency: 'JPY', acquisitionDate: h.acquisitionDate,
       storageLocation: h.storage, notes: h.notes, createdAt: h.addedAt,
     });
   });

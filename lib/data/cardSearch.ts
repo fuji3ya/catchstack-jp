@@ -1,14 +1,11 @@
-// Live card search — queries pokemontcg.io (Pokémon) and Scryfall (MTG) in
-// parallel and maps results to the shared SeedCard shape.
+// Live card search — JP market only. Queries TCGdex JP (catalog/name/image)
+// and the 遊々亭 price worker (catchstack-jp.starving-effort.com) for the
+// matching sell price, and maps results to the shared SeedCard shape.
 import type { SeedCard } from '@/lib/data/seedCards';
 
-// 8-second hard timeout per provider request.
 const FETCH_TIMEOUT_MS = 8000;
-
-// Escape characters that pokemontcg.io's Lucene parser treats as special.
-function escapePokemonQuery(q: string): string {
-  return q.replace(/["':]/g, '');
-}
+const TCGDEX_BASE = 'https://api.tcgdex.net/v2/ja/cards';
+const PRICE_WORKER = 'https://catchstack-jp.starving-effort.com/';
 
 function firstFinite(...values: (number | undefined | null)[]): number {
   for (const v of values) {
@@ -18,7 +15,6 @@ function firstFinite(...values: (number | undefined | null)[]): number {
   return 0;
 }
 
-// Merge two AbortSignals into one: the merged signal aborts when either fires.
 function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
   const ctrl = new AbortController();
   const abort = () => ctrl.abort();
@@ -32,26 +28,19 @@ function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
 }
 
 // Fetch JSON with a per-attempt timeout and one retry for transient CDN
-// failures. pokemontcg.io sits behind Cloudflare and intermittently 403s
-// burst/anonymous requests; a single retry smooths that over. Never throws —
-// returns the parsed JSON, or null on give-up (caller maps null -> []).
-async function fetchJson(
-  url: string,
-  headers: Record<string, string>,
-  signal: AbortSignal,
-): Promise<unknown | null> {
+// failures (yuyu-tei sits behind Cloudflare and intermittently 403s burst
+// requests). Never throws — returns the parsed JSON, or null on give-up.
+async function fetchJson(url: string, signal: AbortSignal): Promise<unknown | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const timeoutCtrl = new AbortController();
     const timer = setTimeout(() => timeoutCtrl.abort(), FETCH_TIMEOUT_MS);
     const combined = combineSignals(signal, timeoutCtrl.signal);
     try {
-      const res = await fetch(url, { signal: combined, headers });
+      const res = await fetch(url, { signal: combined, headers: { 'User-Agent': 'Catchstack-JP/1.0', Accept: 'application/json' } });
       if (res.ok) return await res.json();
-      // Retry transient Cloudflare/CDN failures (403/429/5xx) exactly once.
       if (attempt === 0 && (res.status === 403 || res.status === 429 || res.status >= 500)) continue;
       return null;
     } catch {
-      // Network blip / abort — retry once unless the caller aborted.
       if (signal.aborted) return null;
       if (attempt === 0) continue;
       return null;
@@ -62,77 +51,45 @@ async function fetchJson(
   return null;
 }
 
-async function fetchPokemon(query: string, signal: AbortSignal): Promise<SeedCard[]> {
-  const escaped = escapePokemonQuery(query);
-  const params = new URLSearchParams({
-    q: `name:"${escaped}*"`,
-    pageSize: '24',
-    orderBy: '-set.releaseDate',
-    select: 'id,name,set,number,rarity,images,tcgplayer,cardmarket',
-  });
-  const url = `https://api.pokemontcg.io/v2/cards?${params.toString()}`;
-
-  const json = await fetchJson(url, { 'User-Agent': 'Catchstack/1.0', Accept: 'application/json' }, signal);
-  const data = (json as { data?: unknown })?.data;
-  if (!Array.isArray(data)) return [];
-
-  return (data as Record<string, unknown>[])
-    .map((card): SeedCard | null => {
-      const prices = (card.tcgplayer as Record<string, unknown>)?.prices as Record<string, { market?: number }> | undefined;
-      const cm = (card.cardmarket as Record<string, unknown>)?.prices as { trendPrice?: number } | undefined;
-      const marketUsd = firstFinite(
-        prices?.holofoil?.market,
-        prices?.reverseHolofoil?.market,
-        prices?.normal?.market,
-        prices?.['1stEditionHolofoil']?.market,
-        cm?.trendPrice,
-      );
-      const images = card.images as { large?: string; small?: string } | undefined;
-      const image = images?.large ?? images?.small ?? '';
-      if (!image) return null;
-      const set = card.set as { name?: string } | undefined;
-      return {
-        id: String(card.id ?? ''),
-        category: 'Pokemon',
-        name: String(card.name ?? ''),
-        set: String(set?.name ?? ''),
-        number: String(card.number ?? ''),
-        rarity: String(card.rarity ?? ''),
-        image,
-        marketUsd,
-      };
-    })
-    .filter((c): c is SeedCard => c !== null);
+function normNumber(n: string | undefined): string {
+  return (n ?? '').split('/')[0].replace(/^0+/, '') || '0';
 }
 
-async function fetchMTG(query: string, signal: AbortSignal): Promise<SeedCard[]> {
-  const encoded = encodeURIComponent(query);
-  // unique=prints returns every printing of a card = the many "versions".
-  const url = `https://api.scryfall.com/cards/search?q=${encoded}&unique=prints&order=released`;
+// Search TCGdex JP by Japanese name. Returns the catalog identity (name,
+// image, set, number) for each printing — no price yet.
+async function searchTcgdex(query: string, signal: AbortSignal): Promise<Array<{
+  id: string; name: string; localId: string; image: string; set: string; rarity: string;
+}>> {
+  const url = `${TCGDEX_BASE}?name=${encodeURIComponent(query)}`;
+  const json = await fetchJson(url, signal);
+  if (!Array.isArray(json)) return [];
+  return (json as Record<string, unknown>[])
+    .filter((c) => typeof c.image === 'string' && c.image)
+    .slice(0, 24)
+    .map((c) => ({
+      id: String(c.id ?? ''),
+      name: String(c.name ?? ''),
+      localId: String(c.localId ?? ''),
+      image: String(c.image ?? ''),
+      set: '',
+      rarity: '',
+    }));
+}
 
-  const json = await fetchJson(url, { 'User-Agent': 'Catchstack/1.0', Accept: 'application/json' }, signal);
-  const data = (json as { data?: unknown })?.data;
-  if (!Array.isArray(data)) return [];
-
-  return (data as Record<string, unknown>[])
-    .map((card): SeedCard | null => {
-      const imageUris = card.image_uris as { normal?: string } | undefined;
-      const cardFaces = card.card_faces as Array<{ image_uris?: { normal?: string } }> | undefined;
-      const image = imageUris?.normal ?? cardFaces?.[0]?.image_uris?.normal ?? '';
-      if (!image) return null;
-      const prices = card.prices as { usd?: string } | undefined;
-      return {
-        id: `scry-${String(card.id ?? '')}`,
-        category: 'MTG',
-        name: String(card.name ?? ''),
-        set: String(card.set_name ?? ''),
-        number: String(card.collector_number ?? ''),
-        rarity: String(card.rarity ?? ''),
-        image,
-        marketUsd: Number(prices?.usd) || 0,
-      };
-    })
-    .filter((c): c is SeedCard => c !== null);
+// Fetch 遊々亭 sell/buy prices for a given query (returns every printing the
+// shop has under that name, keyed by number so the caller can match exactly).
+async function fetchYuyuteiPrices(query: string, signal: AbortSignal): Promise<Array<{
+  name: string; number: string; sellJpy: number | null;
+}>> {
+  const url = `${PRICE_WORKER}?q=${encodeURIComponent(query)}`;
+  const json = await fetchJson(url, signal);
+  const cards = (json as { cards?: unknown })?.cards;
+  if (!Array.isArray(cards)) return [];
+  return (cards as Record<string, unknown>[]).map((c) => ({
+    name: String(c.name ?? ''),
+    number: String(c.number ?? ''),
+    sellJpy: typeof c.sellJpy === 'number' ? c.sellJpy : null,
+  }));
 }
 
 export async function searchCards(query: string, signal?: AbortSignal): Promise<SeedCard[]> {
@@ -141,13 +98,30 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
 
   const callerSignal = signal ?? new AbortController().signal;
 
-  const [pokemonResult, mtgResult] = await Promise.allSettled([
-    fetchPokemon(q, callerSignal),
-    fetchMTG(q, callerSignal),
+  const [tcgdexResult, priceResult] = await Promise.allSettled([
+    searchTcgdex(q, callerSignal),
+    fetchYuyuteiPrices(q, callerSignal),
   ]);
 
-  const pokemon = pokemonResult.status === 'fulfilled' ? pokemonResult.value : [];
-  const mtg = mtgResult.status === 'fulfilled' ? mtgResult.value : [];
+  const tcgdexCards = tcgdexResult.status === 'fulfilled' ? tcgdexResult.value : [];
+  const prices = priceResult.status === 'fulfilled' ? priceResult.value : [];
 
-  return [...pokemon, ...mtg].slice(0, 24);
+  return tcgdexCards
+    .map((c): SeedCard | null => {
+      // Exact match: same name string AND number (zero-stripped) — same
+      // precision rule validated end-to-end in jpPrice.ts (6/6 unique hits).
+      const hit = prices.find((p) => p.name === c.name && normNumber(p.number) === normNumber(c.localId));
+      const marketJpy = firstFinite(hit?.sellJpy);
+      return {
+        id: c.id,
+        category: 'Pokemon',
+        name: c.name,
+        set: c.set,
+        number: c.localId,
+        rarity: c.rarity,
+        image: `${c.image}/high.png`,
+        marketJpy,
+      };
+    })
+    .filter((c): c is SeedCard => c !== null);
 }

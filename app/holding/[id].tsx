@@ -15,30 +15,31 @@ import { PortfolioChart } from '@/components/PortfolioChart';
 import { certFor } from '@/lib/design/cardPresentation';
 import { windowChange } from '@/lib/pricing/calc';
 import { FEATURES } from '@/lib/features';
+import { fmtJPY } from '@/lib/format';
 
-function money(v: number | undefined, withCents = false): string {
+function money(v: number | undefined): string {
   if (v == null) return '—';
-  return '$' + v.toLocaleString('en-US', withCents ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
+  return fmtJPY(v);
 }
 
 function formatDate(iso?: string): string {
-  if (!iso) return 'Not set';
+  if (!iso) return '未設定';
   const d = new Date(iso.length === 10 ? iso + 'T00:00:00Z' : iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 // Relative-time label for the live-price fetch timestamp.
 function formatFetchedAt(ms: number | null): string {
-  if (!ms) return 'Reference data';
+  if (!ms) return '参考データ';
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (s < 60) return 'Just now';
+  if (s < 60) return 'たった今';
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m}分前`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `${h}時間前`;
   const d = Math.floor(h / 24);
-  return `${d}d ago`;
+  return `${d}日前`;
 }
 
 function Signal({ icon, color, bg, label, children }: { icon: any; color: string; bg: string; label: string; children: React.ReactNode }) {
@@ -82,8 +83,8 @@ export default function HoldingDetailScreen() {
         </TouchableOpacity>
         <View style={styles.unavailable}>
           <Ionicons name="card-outline" size={28} color={tokens.color.textTertiary} />
-          <Text style={styles.unavailableT}>Holding unavailable</Text>
-          <Text style={styles.unavailableS}>This card isn't in your collection yet. Add it from the Add tab.</Text>
+          <Text style={styles.unavailableT}>カードが見つかりません</Text>
+          <Text style={styles.unavailableS}>このカードはまだコレクションに登録されていません。追加タブから登録できます。</Text>
         </View>
       </SafeAreaView>
     );
@@ -144,7 +145,7 @@ export default function HoldingDetailScreen() {
           )}
           <View style={styles.refImage}>
             <Ionicons name="camera-outline" size={13} color={tokens.color.textTertiary} />
-            <Text style={styles.refImageTxt}>{row.imageUrl?.startsWith('file:') || row.imageUrl?.startsWith('blob:') || row.imageUrl?.startsWith('data:') ? 'Your photo' : 'Reference image · tap Edit holding to use your own photo'}</Text>
+            <Text style={styles.refImageTxt}>{row.imageUrl?.startsWith('file:') || row.imageUrl?.startsWith('blob:') || row.imageUrl?.startsWith('data:') ? '自分の写真' : '参考画像 · 編集から自分の写真に変更できます'}</Text>
           </View>
         </View>
 
@@ -165,16 +166,16 @@ export default function HoldingDetailScreen() {
 
         {/* value block */}
         <View style={styles.valueblock}>
-          <Text style={styles.vlabel}>Reference Market Value</Text>
+          <Text style={styles.vlabel}>参考販売価格</Text>
           <Text style={styles.vbig}>{money(row.median)}</Text>
           <View style={styles.vrow}>
             <View style={[styles.daypill, { backgroundColor: up ? tokens.color.gainBg : tokens.color.lossBg }]}>
               <Text style={[styles.dayArrow, { color: dayColor }]}>{up ? '▲' : '▼'}</Text>
-              <Text style={[styles.dayChg, { color: dayColor }]}>{(up ? '+' : '-') + money(Math.abs(dayUsd), true)} · {(up ? '+' : '') + dayPct.toFixed(2)}%</Text>
+              <Text style={[styles.dayChg, { color: dayColor }]}>{(up ? '+' : '-') + money(Math.abs(dayUsd))} · {(up ? '+' : '') + dayPct.toFixed(2)}%</Text>
             </View>
-            <Text style={styles.period}>today</Text>
+            <Text style={styles.period}>本日</Text>
           </View>
-          <Text style={styles.vsrc}>Reference market value · ungraded · TCGplayer via pokemontcg.io. Only the current price is live — the history line shape is illustrative.</Text>
+          <Text style={styles.vsrc}>参考販売価格 · 未鑑定 · 遊々亭(yuyu-tei.jp)の公開価格。現在価格のみライブ取得 — 履歴グラフの形状はイメージです。</Text>
         </View>
 
         {/* chart */}
@@ -183,65 +184,65 @@ export default function HoldingDetailScreen() {
         </View>
 
         {/* signals */}
-        <Text style={styles.secTitle}>Signals</Text>
+        <Text style={styles.secTitle}>シグナル</Text>
         <View style={styles.card}>
-          <Signal icon="trending-up" color={tokens.color.gain} bg={tokens.color.gainBg} label="Near 90-day high">
-            Within <Text style={styles.strong}>{pctBelowHigh.toFixed(0)}%</Text> of its 90-day high ({money(high90)}).
+          <Signal icon="trending-up" color={tokens.color.gain} bg={tokens.color.gainBg} label="90日高値に接近">
+            90日高値（{money(high90)}）まで<Text style={styles.strong}>{pctBelowHigh.toFixed(0)}%</Text>。
           </Signal>
           <View style={styles.signalSep} />
-          <Signal icon="arrow-forward" color="rgba(59,130,246,0.95)" bg="rgba(59,130,246,0.1)" label="Momentum">
-            {mom30 >= 0 ? 'Up' : 'Down'} <Text style={styles.strong}>{Math.abs(mom30).toFixed(1)}%</Text> over the past 30 days.
+          <Signal icon="arrow-forward" color="rgba(59,130,246,0.95)" bg="rgba(59,130,246,0.1)" label="モメンタム">
+            過去30日間で<Text style={styles.strong}>{Math.abs(mom30).toFixed(1)}%</Text>{mom30 >= 0 ? '上昇' : '下落'}。
           </Signal>
           {vsCost != null && (
             <>
               <View style={styles.signalSep} />
-              <Signal icon="cash-outline" color={tokens.color.goldDeep} bg={tokens.color.goldSoft} label="vs Your cost">
-                <Text style={styles.strong}>{Math.abs(vsCost).toFixed(1)}%</Text> {vsCost >= 0 ? 'above' : 'below'} your acquisition price.
+              <Signal icon="cash-outline" color={tokens.color.goldDeep} bg={tokens.color.goldSoft} label="取得価格との比較">
+                取得価格より<Text style={styles.strong}>{Math.abs(vsCost).toFixed(1)}%</Text>{vsCost >= 0 ? '高い' : '安い'}。
               </Signal>
             </>
           )}
           <View style={styles.signalSep} />
-          <Signal icon="information-circle-outline" color={tokens.color.textTertiary} bg={tokens.color.surfaceSunken} label="Confidence">
-            Based on <Text style={styles.strong}>{dataPoints}</Text> recent data points — {row.confidenceLevel} confidence.
+          <Signal icon="information-circle-outline" color={tokens.color.textTertiary} bg={tokens.color.surfaceSunken} label="信頼度">
+            直近<Text style={styles.strong}>{dataPoints}</Text>件のデータに基づく — 信頼度{row.confidenceLevel}。
           </Signal>
-          <Text style={styles.signalsDisclaimer}>Signals are based on public market data and are not financial advice.</Text>
+          <Text style={styles.signalsDisclaimer}>シグナルは公開市場データに基づく参考情報であり、投資助言ではありません。</Text>
         </View>
 
         {/* price basis */}
-        <Text style={styles.secTitle}>Price basis</Text>
+        <Text style={styles.secTitle}>価格の根拠</Text>
         <View style={styles.card}>
           <View style={styles.grid2}>
-            <Cell k="Median" v={money(row.median)} />
-            <Cell k="Range" v={`${money(low90)} – ${money(high90)}`} small />
-            <Cell k="30-day data points" v={String(dataPoints)} />
-            <Cell k="Updated" v={formatFetchedAt(pricesFetchedAt)} small />
+            <Cell k="中央値" v={money(row.median)} />
+            <Cell k="レンジ" v={`${money(low90)} – ${money(high90)}`} small />
+            <Cell k="30日間のデータ数" v={String(dataPoints)} />
+            <Cell k="更新" v={formatFetchedAt(pricesFetchedAt)} small />
             <View style={styles.cell}>
-              <Text style={styles.cellK}>Confidence</Text>
+              <Text style={styles.cellK}>信頼度</Text>
               <View style={styles.confChip}><View style={styles.confDot} /><Text style={styles.confTxt}>{confLabel}</Text></View>
             </View>
-            <Cell k="Source" v="TCGplayer" small />
+            <Cell k="出典" v="遊々亭" small />
           </View>
-          <Text style={styles.basisNote}>Reference value derived from recent sold listings. Not a guaranteed price.</Text>
+          <Text style={styles.basisNote}>直近の販売価格から算出した参考値です。価格を保証するものではありません。</Text>
         </View>
 
         {/* your holding */}
-        <Text style={styles.secTitle}>Your holding</Text>
+        <Text style={styles.secTitle}>所有情報</Text>
         <View style={styles.card}>
           <View style={styles.grid2}>
-            <Cell k="Acquisition price" v={money(row.cost)} />
-            <Cell k="Acquisition date" v={formatDate(row.acquisitionDate)} small />
-            <Cell k="Storage" v={row.storage || 'Not set'} small />
-            <Cell k="Quantity" v="1" />
+            <Cell k="取得価格" v={money(row.cost)} />
+            <Cell k="取得日" v={formatDate(row.acquisitionDate)} small />
+            <Cell k="保管場所" v={row.storage || '未設定'} small />
+            <Cell k="数量" v="1" />
           </View>
           {row.notes ? (
             <View style={styles.notesBlock}>
-              <Text style={styles.cellK}>Notes</Text>
+              <Text style={styles.cellK}>メモ</Text>
               <Text style={styles.notesText}>{row.notes}</Text>
             </View>
           ) : null}
           {pl != null && (
             <View style={styles.plband}>
-              <Text style={styles.plK}>Unrealized P/L</Text>
+              <Text style={styles.plK}>含み損益</Text>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[styles.plV, { color: pl >= 0 ? tokens.color.gain : tokens.color.loss }]}>{(pl >= 0 ? '+' : '-') + money(Math.abs(pl))}</Text>
                 {vsCost != null && <Text style={[styles.plPct, { color: pl >= 0 ? tokens.color.gain : tokens.color.loss }]}>{(vsCost >= 0 ? '+' : '') + vsCost.toFixed(1)}%</Text>}
@@ -252,25 +253,25 @@ export default function HoldingDetailScreen() {
 
         {/* actions */}
         <View style={styles.actions}>
-          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} activeOpacity={0.9} onPress={() => router.push({ pathname: '/alerts', params: { card: row.catalogItemId } })} accessibilityRole="button" accessibilityLabel={`Set a price alert for ${row.title}`}>
+          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} activeOpacity={0.9} onPress={() => router.push({ pathname: '/alerts', params: { card: row.catalogItemId } })} accessibilityRole="button" accessibilityLabel={`${row.title}の価格アラートを設定`}>
             <Ionicons name="notifications-outline" size={18} color="#fff" />
-            <Text style={styles.btnPrimaryTxt}>Set price alert</Text>
+            <Text style={styles.btnPrimaryTxt}>価格アラートを設定</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnGhost]} activeOpacity={0.7} onPress={() => router.push({ pathname: '/add', params: { edit: row.holdingId } })} accessibilityRole="button" accessibilityLabel={`Edit holding ${row.title}`}>
+          <TouchableOpacity style={[styles.btn, styles.btnGhost]} activeOpacity={0.7} onPress={() => router.push({ pathname: '/add', params: { edit: row.holdingId } })} accessibilityRole="button" accessibilityLabel={`${row.title}を編集`}>
             <Ionicons name="create-outline" size={18} color={tokens.color.textSecondary} />
-            <Text style={styles.btnGhostTxt}>Edit holding</Text>
+            <Text style={styles.btnGhostTxt}>編集する</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.removeBtn} activeOpacity={0.7} onPress={() => {
             removeHolding(row.holdingId);
             // goBack() handles the deep-link case (no back stack → Collection).
             goBack();
-          }} accessibilityRole="button" accessibilityLabel={`Remove ${row.title} from collection`}>
+          }} accessibilityRole="button" accessibilityLabel={`${row.title}をコレクションから削除`}>
             <Ionicons name="trash-outline" size={16} color={tokens.color.loss} />
-            <Text style={styles.removeTxt}>Remove from collection</Text>
+            <Text style={styles.removeTxt}>コレクションから削除</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.disclaim}>Not affiliated with Nintendo, The Pokémon Company, Wizards of the Coast, PSA, or TCGplayer.</Text>
+        <Text style={styles.disclaim}>本アプリは任天堂株式会社・株式会社ポケモン・Wizards of the Coast・PSA・TCGplayer・遊々亭とは提携していません。</Text>
         <View style={{ height: tokens.space.xl }} />
       </ScrollView>
     </SafeAreaView>

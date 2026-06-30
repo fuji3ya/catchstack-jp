@@ -1,29 +1,27 @@
-// AUTO-GENERATED from design/portfolio.html (the APPROVED mockup's exact inlined card data).
-// Using the HTML's exact ids so deterministic grades/day-moves/totals match the mockup 1:1.
+// Verified Japan-market seed catalog. Every card here was cross-checked
+// EXACTLY (TCGdex JP name+localId match) against a live 遊々亭 sell price —
+// see generated/research/catchstack-jp-price-data-feasibility-2026-06-30.md.
+// No synthesized/guessed prices. JP v1 ships Pokémon-only (no verified JP
+// price source for MTG yet); category stays a union for forward compat.
 export interface SeedCard {
   id: string; category: 'Pokemon' | 'MTG'; name: string; set: string;
-  number: string; rarity: string; image: string; marketUsd: number;
+  number: string; rarity: string; image: string; marketJpy: number;
 }
 
 export const SEED_CARDS: SeedCard[] = [
-  { id: "ex13-103", category: "Pokemon", name: "Mewtwo ★", set: "Holon Phantoms", number: "103", rarity: "Rare Holo Star", image: "https://images.pokemontcg.io/ex13/103_hires.png", marketUsd: 5000.0 },
-  { id: "ex8-107", category: "Pokemon", name: "Rayquaza ★", set: "Deoxys", number: "107", rarity: "Rare Holo Star", image: "https://images.pokemontcg.io/ex8/107_hires.png", marketUsd: 2500.99 },
-  { id: "ecard2-149", category: "Pokemon", name: "Lugia", set: "Aquapolis", number: "149", rarity: "Rare Secret", image: "https://images.pokemontcg.io/ecard2/149_hires.png", marketUsd: 2225.0 },
-  { id: "swsh7-215", category: "Pokemon", name: "Umbreon VMAX", set: "Evolving Skies", number: "215", rarity: "Rare Rainbow", image: "https://images.pokemontcg.io/swsh7/215_hires.png", marketUsd: 2210.46 },
-  { id: "ex15-101", category: "Pokemon", name: "Mew ★ δ", set: "Dragon Frontiers", number: "101", rarity: "Rare Holo Star", image: "https://images.pokemontcg.io/ex15/101_hires.png", marketUsd: 2200.0 },
-  { id: "base6-11", category: "Pokemon", name: "Gengar", set: "Legendary Collection", number: "11", rarity: "Rare Holo", image: "https://images.pokemontcg.io/base6/11_hires.png", marketUsd: 1599.99 },
-  { id: "mtg-gaeas-cradle", category: "MTG", name: "Gaea's Cradle", set: "Urza's Saga", number: "321", rarity: "rare", image: "https://cards.scryfall.io/large/front/2/5/25b0b816-0583-44aa-9dc5-f3ff48993a51.jpg?1562902898", marketUsd: 1504.77 },
-  { id: "gym2-2", category: "Pokemon", name: "Blaine's Charizard", set: "Gym Challenge", number: "2", rarity: "Rare Holo", image: "https://images.pokemontcg.io/gym2/2_hires.png", marketUsd: 894.61 },
-  { id: "swsh11-186", category: "Pokemon", name: "Giratina V", set: "Lost Origin", number: "186", rarity: "Rare Ultra", image: "https://images.pokemontcg.io/swsh11/186_hires.png", marketUsd: 866.21 },
-  { id: "ru1-7", category: "Pokemon", name: "Pikachu", set: "Pokémon Rumble", number: "7", rarity: "", image: "https://images.pokemontcg.io/ru1/7_hires.png", marketUsd: 750.0 },
-  { id: "sm10-205", category: "Pokemon", name: "Gardevoir & Sylveon-GX", set: "Unbroken Bonds", number: "205", rarity: "Rare Ultra", image: "https://images.pokemontcg.io/sm10/205_hires.png", marketUsd: 606.14 },
-  { id: "ecard1-4", category: "Pokemon", name: "Blastoise", set: "Expedition Base Set", number: "4", rarity: "Rare Holo", image: "https://images.pokemontcg.io/ecard1/4_hires.png", marketUsd: 499.95 },
-  { id: "mtg-grim-monolith", category: "MTG", name: "Grim Monolith", set: "Urza's Legacy", number: "126", rarity: "rare", image: "https://cards.scryfall.io/large/front/9/d/9ddc9fe1-17c8-4e1d-aeb8-c4214e881280.jpg?1562863767", marketUsd: 471.51 },
-  { id: "base6-74", category: "Pokemon", name: "Eevee", set: "Legendary Collection", number: "74", rarity: "Common", image: "https://images.pokemontcg.io/base6/74_hires.png", marketUsd: 399.95 },
-  { id: "mtg-imperial-seal", category: "MTG", name: "Imperial Seal", set: "Double Masters 2022", number: "79", rarity: "mythic", image: "https://cards.scryfall.io/large/front/e/7/e71a6bd3-7478-4c3a-8ae0-98352ce28492.jpg?1673147544", marketUsd: 164.8 },
-  { id: "mtg-the-one-ring", category: "MTG", name: "The One Ring", set: "The Lord of the Rings: Tales of Middle-earth", number: "246", rarity: "mythic", image: "https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1763472900", marketUsd: 100.89 },
-  { id: "mtg-sheoldred", category: "MTG", name: "Sheoldred, the Apocalypse", set: "Dominaria United", number: "107", rarity: "mythic", image: "https://cards.scryfall.io/large/front/d/6/d67be074-cdd4-41d9-ac89-0a0456c4e4b2.jpg?1674057568", marketUsd: 95.99 },
-  { id: "mtg-force-of-will", category: "MTG", name: "Force of Will", set: "Dominaria Remastered", number: "50", rarity: "mythic", image: "https://cards.scryfall.io/large/front/8/9/89f612d6-7c59-4a7b-a87d-45f789e88ba5.jpg?1776775773", marketUsd: 61.72 },
-  { id: "mtg-ragavan", category: "MTG", name: "Ragavan, Nimble Pilferer", set: "Modern Horizons 2", number: "138", rarity: "mythic", image: "https://cards.scryfall.io/large/front/a/9/a9738cda-adb1-47fb-9f4c-ecd930228c4d.jpg?1782182183", marketUsd: 46.67 },
-  { id: "mtg-mana-crypt", category: "MTG", name: "Mana Crypt", set: "Double Masters", number: "270", rarity: "mythic", image: "https://cards.scryfall.io/large/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg?1727298349", marketUsd: 44.67 },
+  { id: "SV5K-088", category: "Pokemon", name: "ゲンガーex", set: "ワイルドフォース", number: "088", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV5K/088/high.png", marketJpy: 7980 },
+  { id: "SV1V-102", category: "Pokemon", name: "ミライドンex", set: "バイオレットex", number: "102", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV1V/102/high.png", marketJpy: 6980 },
+  { id: "SV1S-103", category: "Pokemon", name: "コライドンex", set: "スカーレットex", number: "103", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV1S/103/high.png", marketJpy: 6980 },
+  { id: "SV5a-078", category: "Pokemon", name: "イーブイ", set: "クリムゾンヘイズ", number: "078", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV5a/078/high.png", marketJpy: 6980 },
+  { id: "S12-109", category: "Pokemon", name: "ルギアV", set: "パラダイムトリガー", number: "109", rarity: "", image: "https://assets.tcgdex.net/ja/S/S12/109/high.png", marketJpy: 4980 },
+  { id: "S12-079", category: "Pokemon", name: "ルギアV", set: "パラダイムトリガー", number: "079", rarity: "Double rare", image: "https://assets.tcgdex.net/ja/S/S12/079/high.png", marketJpy: 1980 },
+  { id: "SV1S-106", category: "Pokemon", name: "コライドンex", set: "スカーレットex", number: "106", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV1S/106/high.png", marketJpy: 1780 },
+  { id: "S12-080", category: "Pokemon", name: "ルギアVSTAR", set: "パラダイムトリガー", number: "080", rarity: "", image: "https://assets.tcgdex.net/ja/S/S12/080/high.png", marketJpy: 1480 },
+  { id: "S12a-013", category: "Pokemon", name: "リザードンV", set: "VSTARユニバース", number: "013", rarity: "Double rare", image: "https://assets.tcgdex.net/ja/S/S12a/013/high.png", marketJpy: 1280 },
+  { id: "S9-014", category: "Pokemon", name: "リザードンV", set: "スターバース", number: "014", rarity: "Double rare", image: "https://assets.tcgdex.net/ja/S/S9/014/high.png", marketJpy: 1280 },
+  { id: "SV1S-094", category: "Pokemon", name: "コライドンex", set: "スカーレットex", number: "094", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV1S/094/high.png", marketJpy: 980 },
+  { id: "SV2a-006", category: "Pokemon", name: "リザードンex", set: "ポケモンカード151", number: "006", rarity: "Double rare", image: "https://assets.tcgdex.net/ja/SV/SV2a/006/high.png", marketJpy: 780 },
+  { id: "S12a-050", category: "Pokemon", name: "ミュウツーV", set: "VSTARユニバース", number: "050", rarity: "Double rare", image: "https://assets.tcgdex.net/ja/S/S12a/050/high.png", marketJpy: 780 },
+  { id: "SV1V-094", category: "Pokemon", name: "ミライドンex", set: "バイオレットex", number: "094", rarity: "", image: "https://assets.tcgdex.net/ja/SV/SV1V/094/high.png", marketJpy: 580 },
+  { id: "SV2a-094", category: "Pokemon", name: "ゲンガー", set: "ポケモンカード151", number: "094", rarity: "Rare", image: "https://assets.tcgdex.net/ja/SV/SV2a/094/high.png", marketJpy: 580 },
 ];

@@ -19,6 +19,7 @@ import { searchCards } from '@/lib/data/cardSearch';
 import { addUserCard } from '@/lib/data/userCatalog';
 import { resolveCard } from '@/lib/data/catalog';
 import type { SeedCard } from '@/lib/data/seedCards';
+import { fmtJPY } from '@/lib/format';
 
 function MiniSlab({ uri }: { uri: string }) {
   const styles = useThemedStyles(makeStyles);
@@ -43,7 +44,7 @@ function seedToCollectionCard(c: SeedCard): CollectionCard {
     set: c.set,
     number: c.number,
     imageUrl: c.image,
-    marketUsd: c.marketUsd,
+    marketJpy: c.marketJpy,
     grade,
     gradeNum: gradeNum(grade),
     cert: certFor(c.id),
@@ -127,15 +128,15 @@ export default function AddScreen() {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         showInfo(
-          'Photo library access denied',
-          'Catchstack needs permission to read photos so you can use your own card images. Enable it in iOS Settings → Catchstack → Photos.'
+          '写真へのアクセスが許可されていません',
+          'Catchstackで自分のカード画像を使うには写真への許可が必要です。設定 → Catchstack → 写真 から許可してください。'
         );
         return;
       }
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       if (!res.canceled && res.assets?.[0]?.uri) setPhotoUri(res.assets[0].uri);
     } catch (err) {
-      showInfo("Couldn't open photo library", 'Please try again, or pick an image later.');
+      showInfo('写真を開けませんでした', 'もう一度お試しいただくか、後で画像を選んでください。');
     }
   }
 
@@ -210,10 +211,10 @@ export default function AddScreen() {
       const existing = holdings.find((h) => h.catalogItemId === selected.id);
       if (existing) {
         showConfirm(
-          'Already in your collection',
-          `You already own ${selected.title}. Update its details instead?`,
+          'すでにコレクションにあります',
+          `${selected.title}はすでに登録されています。情報を更新しますか？`,
           {
-            confirmLabel: 'Update',
+            confirmLabel: '更新する',
             // Clear selection on cancel so the same prompt can't loop when the
             // user taps the disabled-feeling "Add" button again.
             onCancel: () => setSelected(null),
@@ -237,10 +238,10 @@ export default function AddScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.topbar}><Text style={styles.topbarTitle}>{edit ? 'Edit holding' : 'Add a card'}</Text></View>
+        <View style={styles.topbar}><Text style={styles.topbarTitle}>{edit ? 'カードを編集' : 'カードを追加'}</Text></View>
 
-        <Text style={styles.sectionHead}>Find your card</Text>
-        <Text style={styles.sectionSub}>Search the catalog — we'll pull the image and current reference price.</Text>
+        <Text style={styles.sectionHead}>カードを探す</Text>
+        <Text style={styles.sectionSub}>カタログを検索すると、画像と現在の参考価格が自動で入力されます。</Text>
 
         <View style={styles.formCard}>
           {/* search */}
@@ -248,7 +249,7 @@ export default function AddScreen() {
             <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><G stroke="#A1A1A6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><Circle cx="11" cy="11" r="7" /><Path d="M16.2 16.2L21 21" /></G></Svg>
             <TextInput
               style={styles.searchInput}
-              placeholder={FEATURES.SHOW_GRADES ? 'Search by card name or cert…' : 'Search by card name…'}
+              placeholder="カード名で検索…"
               placeholderTextColor={tokens.color.textTertiary}
               value={query}
               onChangeText={setQuery}
@@ -260,7 +261,7 @@ export default function AddScreen() {
           {/* searching indicator */}
           {searching && !selected && (
             <View style={styles.emptySearch}>
-              <Text style={styles.emptySearchTxt}>Searching…</Text>
+              <Text style={styles.emptySearchTxt}>検索中…</Text>
             </View>
           )}
 
@@ -268,7 +269,7 @@ export default function AddScreen() {
           {!searching && query.trim().length >= 2 && results.length === 0 && !selected && (
             <View style={styles.emptySearch}>
               <Text style={styles.emptySearchTxt}>
-                No matches in the catalog. Catchstack currently supports Pokemon (pokemontcg.io) and Magic: The Gathering (Scryfall).
+                該当するカードが見つかりませんでした。Catchstackは現在ポケモンカード（TCGdex JP / 遊々亭）に対応しています。
               </Text>
             </View>
           )}
@@ -291,7 +292,7 @@ export default function AddScreen() {
                         {` · ${cat.tag}`}
                       </Text>
                     </View>
-                    <Text style={styles.resultVal}>${Math.round(c.marketUsd).toLocaleString('en-US')}</Text>
+                    <Text style={styles.resultVal}>{c.marketJpy > 0 ? fmtJPY(c.marketJpy) : '—'}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -306,7 +307,7 @@ export default function AddScreen() {
               <View style={styles.resolvedInfo}>
                 <Text style={styles.resolvedName} numberOfLines={1}>{selected.title}</Text>
                 <Text style={styles.resolvedMeta} numberOfLines={1}>{FEATURES.SHOW_GRADES ? `${selected.set} · ${selected.grade}` : selected.set}</Text>
-                <Text style={styles.resolvedNote}>{photoUri ? 'Your photo' : 'Reference image from pokemontcg.io / Scryfall'}</Text>
+                <Text style={styles.resolvedNote}>{photoUri ? '自分の写真' : 'TCGdex JP / 遊々亭の参考画像'}</Text>
               </View>
               <View style={styles.resolvedGrade}>
                 {FEATURES.SHOW_GRADES ? (
@@ -322,15 +323,15 @@ export default function AddScreen() {
             </View>
 
             {/* Optional: replace reference image with your own photo */}
-            <TouchableOpacity style={styles.replacePhotoBtn} activeOpacity={0.7} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={photoUri ? 'Change your photo' : 'Replace reference image with your own photo'}>
+            <TouchableOpacity style={styles.replacePhotoBtn} activeOpacity={0.7} onPress={takePhoto} accessibilityRole="button" accessibilityLabel={photoUri ? '写真を変更' : '自分の写真に変更'}>
               <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
                 <Path d="M4 6h16v12H4z" stroke={tokens.color.textSecondary} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
                 <Circle cx="9" cy="11" r="2" stroke={tokens.color.textSecondary} strokeWidth={1.7} />
                 <Path d="M4 18l5-5 4 3 4-3 3 2" stroke={tokens.color.textSecondary} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
-              <Text style={styles.replacePhotoTxt}>{photoUri ? 'Change your photo' : 'Use your own photo (optional)'}</Text>
+              <Text style={styles.replacePhotoTxt}>{photoUri ? '写真を変更' : '自分の写真を使う（任意）'}</Text>
               {photoUri ? (
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setPhotoUri(null); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Remove your photo">
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setPhotoUri(null); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="写真を削除">
                   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none"><Path d="M6 6l12 12M18 6L6 18" stroke={tokens.color.textTertiary} strokeWidth={2} strokeLinecap="round" /></Svg>
                 </TouchableOpacity>
               ) : null}
@@ -340,41 +341,41 @@ export default function AddScreen() {
 
           {/* optional details */}
           <View style={styles.detailsHead}>
-            <Text style={styles.dhLabel}>Optional details</Text>
-            <Text style={styles.dhNote}>You can add these anytime</Text>
+            <Text style={styles.dhLabel}>追加情報（任意）</Text>
+            <Text style={styles.dhNote}>後からでも追加できます</Text>
           </View>
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>PURCHASE PRICE</Text>
-            <TextInput style={styles.fieldInput} placeholder="$0.00" placeholderTextColor={tokens.color.textTertiary} value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
+            <Text style={styles.fieldLabel}>取得価格</Text>
+            <TextInput style={styles.fieldInput} placeholder="¥0" placeholderTextColor={tokens.color.textTertiary} value={price} onChangeText={setPrice} keyboardType="decimal-pad" />
           </View>
           <View style={styles.splitRow}>
             <View style={styles.fieldHalf}>
-              <Text style={styles.fieldLabel}>PURCHASE DATE</Text>
-              <TextInput style={styles.fieldInput} placeholder={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })} placeholderTextColor={tokens.color.textTertiary} value={date} onChangeText={setDate} />
+              <Text style={styles.fieldLabel}>取得日</Text>
+              <TextInput style={styles.fieldInput} placeholder={new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })} placeholderTextColor={tokens.color.textTertiary} value={date} onChangeText={setDate} />
             </View>
             <View style={[styles.fieldHalf, styles.fieldHalfLast]}>
-              <Text style={styles.fieldLabel}>STORAGE</Text>
-              <TextInput style={styles.fieldInput} placeholder={FEATURES.SHOW_GRADES ? 'e.g. PSA Vault' : 'e.g. Binder · Top loader · Vault'} placeholderTextColor={tokens.color.textTertiary} value={storage} onChangeText={setStorage} />
+              <Text style={styles.fieldLabel}>保管場所</Text>
+              <TextInput style={styles.fieldInput} placeholder={FEATURES.SHOW_GRADES ? '例：PSAボルト' : '例：バインダー・スリーブ・保管庫'} placeholderTextColor={tokens.color.textTertiary} value={storage} onChangeText={setStorage} />
             </View>
           </View>
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>NOTES</Text>
-            <TextInput style={[styles.fieldInput, styles.notesInput]} placeholder="Any notes about this card…" placeholderTextColor={tokens.color.textTertiary} value={notes} onChangeText={setNotes} multiline />
+            <Text style={styles.fieldLabel}>メモ</Text>
+            <TextInput style={[styles.fieldInput, styles.notesInput]} placeholder="このカードについてのメモ…" placeholderTextColor={tokens.color.textTertiary} value={notes} onChangeText={setNotes} multiline />
           </View>
         </View>
 
         {/* actions */}
         <View style={styles.actions}>
           <TouchableOpacity style={[styles.btn, styles.btnPrimary, !selected && styles.btnDisabled]} activeOpacity={0.9} disabled={!selected} onPress={addToCollection}>
-            <Text style={styles.btnPrimaryTxt}>{edit ? 'Save changes' : 'Add to collection'}</Text>
+            <Text style={styles.btnPrimaryTxt}>{edit ? '変更を保存' : 'コレクションに追加'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.btnGhost} activeOpacity={0.7} onPress={() => goBack()}>
-            <Text style={styles.btnGhostTxt}>Cancel</Text>
+            <Text style={styles.btnGhostTxt}>キャンセル</Text>
           </TouchableOpacity>
-          <Text style={styles.laterNote}>Purchase details and notes can be added anytime from the card detail screen.</Text>
+          <Text style={styles.laterNote}>取得価格やメモは、カード詳細画面からいつでも追加できます。</Text>
         </View>
 
-        <Text style={styles.disclaim}>Not affiliated with Nintendo, The Pokémon Company, Wizards of the Coast, PSA, or TCGplayer.</Text>
+        <Text style={styles.disclaim}>本アプリは任天堂株式会社・株式会社ポケモン・Wizards of the Coast・PSA・TCGplayer・遊々亭とは提携していません。</Text>
         <View style={{ height: tokens.space.xl }} />
       </ScrollView>
       </KeyboardAvoidingView>

@@ -33,12 +33,15 @@ export function certFor(id: string): string {
   return (60000000 + (h % 19000000)).toString();
 }
 
-// Strip replacement chars / star glyphs / stray symbols (e.g. δ).
+// Strip replacement chars / star glyphs / stray symbols (e.g. δ). Preserves
+// Japanese script (hiragana/katakana/kanji) alongside ASCII word chars — the
+// old [^\w...] form is ASCII-only and silently destroyed every JP card name
+// (e.g. "ゲンガーex" -> "ex"), so JP ranges are allow-listed explicitly.
 export function cleanName(raw: string): string {
   return String(raw)
     .replace(/�/g, '')
     .replace(/[★☆✰✧]/g, '')
-    .replace(/[^\w &.,'\-]/g, ' ')
+    .replace(/[^\w぀-ヿ一-鿿０-９ &.,'\-]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/[\s'.\-]+$/, '')
     .replace(/^[\s'.,\-]+/, '')

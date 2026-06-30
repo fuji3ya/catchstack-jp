@@ -53,7 +53,8 @@ export default function SettingsScreen() {
   const [paywall, setPaywall] = useState(false);
   const [appearancePicker, setAppearancePicker] = useState(false);
 
-  const PRO_FEATURES = ['Dark & light themes', 'CSV collection export', 'Unlimited price alerts', 'Priority price refresh'];
+  const PRO_FEATURES = ['ダーク・ライトテーマ', 'CSVコレクション書き出し', '無制限の価格アラート', '優先価格更新'];
+  const APPEARANCE_LABEL: Record<string, string> = { System: 'システム', Light: 'ライト', Dark: 'ダーク' };
 
   function unlockPro() {
     updateSettings({ pro: true });
@@ -63,18 +64,18 @@ export default function SettingsScreen() {
   async function exportCsv() {
     if (!pro) { setPaywall(true); return; }
     const rows = view?.rows ?? [];
-    if (!rows.length) { showInfo('Nothing to export', 'Add a card to your collection first.'); return; }
+    if (!rows.length) { showInfo('書き出すデータがありません', 'まずコレクションにカードを追加してください。'); return; }
     try {
       await exportHoldingsCsv(rows);
     } catch {
-      showInfo('Export failed', 'Could not export your collection. Please try again.');
+      showInfo('書き出しに失敗しました', 'コレクションを書き出せませんでした。もう一度お試しください。');
     }
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>設定</Text>
 
         {/* Pro upsell */}
         <LinearGradient colors={['#1E1E21', '#121214', '#0E0E10']} start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.proCard}>
@@ -84,7 +85,7 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.proTitle}>Catchstack Pro</Text>
-              <Text style={styles.proSubtitle}>Unlock the full collection experience</Text>
+              <Text style={styles.proSubtitle}>コレクション体験をフルに解放</Text>
             </View>
           </View>
           <View style={styles.proFeatures}>
@@ -97,56 +98,56 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.proFooter}>
             <View>
-              <Text style={styles.proPriceMain}>{pro ? 'Active' : 'Free in early access'}</Text>
-              <Text style={styles.proPriceAlt}>{pro ? 'All features unlocked' : 'Subscription planned later'}</Text>
+              <Text style={styles.proPriceMain}>{pro ? '有効' : '早期アクセス期間中は無料'}</Text>
+              <Text style={styles.proPriceAlt}>{pro ? 'すべての機能が利用可能' : '今後サブスクリプションを予定'}</Text>
             </View>
             <TouchableOpacity style={styles.proBtn} activeOpacity={0.85} onPress={() => setPaywall(true)}>
-              <Text style={styles.proBtnTxt}>{pro ? 'Manage' : 'Unlock'}</Text>
+              <Text style={styles.proBtnTxt}>{pro ? '管理' : '解除する'}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
 
         {/* General */}
-        <SectionLabel>General</SectionLabel>
+        <SectionLabel>一般</SectionLabel>
         <View style={styles.listCard}>
-          <Row icon="cash-outline" color="#3A7BD5" label="Display Currency" right={<Text style={styles.staticVal}>{currency}</Text>} />
+          <Row icon="cash-outline" color="#3A7BD5" label="表示通貨" right={<Text style={styles.staticVal}>{currency}</Text>} />
           <View style={styles.sep} />
-          <Row icon="notifications-outline" color="#8B5CF6" label="Notifications" right={<Chevron />} onPress={() => router.push('/alerts')} />
+          <Row icon="notifications-outline" color="#8B5CF6" label="通知" right={<Chevron />} onPress={() => router.push('/alerts')} />
           <View style={styles.sep} />
-          <Row icon="happy-outline" color={tokens.color.gain} label="Face ID Lock" right={
+          <Row icon="happy-outline" color={tokens.color.gain} label="Face IDロック" right={
             <TouchableOpacity activeOpacity={0.8} onPress={() => updateSettings({ faceId: !faceId })} style={[styles.toggle, faceId && styles.toggleOn]}>
               <View style={[styles.knob, faceId && styles.knobOn]} />
             </TouchableOpacity>
           } />
           <View style={styles.sep} />
-          <Row icon="contrast-outline" color={tokens.color.textSecondary} label="Appearance" pro={!pro} right={
-            <View style={styles.valRow}><Text style={styles.staticVal}>{appearance}</Text><Chevron /></View>
+          <Row icon="contrast-outline" color={tokens.color.textSecondary} label="外観" pro={!pro} right={
+            <View style={styles.valRow}><Text style={styles.staticVal}>{APPEARANCE_LABEL[appearance] ?? appearance}</Text><Chevron /></View>
           } onPress={() => { if (pro) setAppearancePicker(true); else setPaywall(true); }} />
         </View>
 
         {/* Data */}
-        <SectionLabel>Data</SectionLabel>
+        <SectionLabel>データ</SectionLabel>
         <View style={styles.listCard}>
-          <Row icon="download-outline" color="#0D9488" label="Export collection (CSV)" pro={!pro} right={<Chevron />} onPress={exportCsv} />
+          <Row icon="download-outline" color="#0D9488" label="コレクションを書き出す（CSV）" pro={!pro} right={<Chevron />} onPress={exportCsv} />
         </View>
 
         {/* About */}
-        <SectionLabel>About</SectionLabel>
+        <SectionLabel>このアプリについて</SectionLabel>
         <View style={styles.listCard}>
-          <Row icon="reader-outline" color="#5E6AD2" label="Terms of Service" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'terms' } })} />
+          <Row icon="reader-outline" color="#5E6AD2" label="利用規約" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'terms' } })} />
           <View style={styles.sep} />
-          <Row icon="shield-checkmark-outline" color="#3A7BD5" label="Privacy Policy" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'privacy' } })} />
+          <Row icon="shield-checkmark-outline" color="#3A7BD5" label="プライバシーポリシー" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'privacy' } })} />
           <View style={styles.sep} />
-          <Row icon="alert-circle-outline" color="#8B5CF6" label="Disclaimer" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'disclaimer' } })} />
+          <Row icon="alert-circle-outline" color="#8B5CF6" label="免責事項" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'disclaimer' } })} />
           <View style={styles.sep} />
-          <Row icon="server-outline" color="#0D9488" label="About & data sources" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'about' } })} />
+          <Row icon="server-outline" color="#0D9488" label="データソースについて" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'about' } })} />
           <View style={styles.sep} />
-          <Row icon="mail-outline" color={tokens.color.gain} label="Contact Us" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'contact' } })} />
+          <Row icon="mail-outline" color={tokens.color.gain} label="お問い合わせ" right={<Chevron />} onPress={() => router.push({ pathname: '/info/[topic]', params: { topic: 'contact' } })} />
         </View>
 
         {/* data source note (IP / legal) */}
         <Text style={styles.dataNote}>
-          Prices are public UNGRADED reference values (pokemontcg.io / Scryfall / TCGplayer), not an appraisal. Not affiliated with, endorsed by, or sponsored by Nintendo, The Pokémon Company, Wizards of the Coast, PSA, or TCGplayer.
+          価格は遊々亭(yuyu-tei.jp)・TCGdex JPの公開未鑑定参考価格であり、鑑定評価ではありません。本アプリは任天堂株式会社・株式会社ポケモン・Wizards of the Coast・PSA・TCGplayer・遊々亭とは提携・公認・後援関係にありません。
         </Text>
         <Text style={styles.version}>Catchstack 1.0.0</Text>
         <View style={{ height: tokens.space.xl }} />
@@ -160,12 +161,12 @@ export default function SettingsScreen() {
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>{pro ? 'Catchstack Pro · Active' : 'Catchstack Pro'}</Text>
+            <Text style={styles.sheetTitle}>{pro ? 'Catchstack Pro · 有効' : 'Catchstack Pro'}</Text>
             <TouchableOpacity onPress={() => setPaywall(false)} style={styles.sheetX} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={tokens.color.textSecondary} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.paywallSub}>{pro ? 'Every Pro feature is unlocked on this device.' : 'Free during early access — unlock every feature now.'}</Text>
+          <Text style={styles.paywallSub}>{pro ? 'このデバイスではすべてのPro機能が利用可能です。' : '早期アクセス期間中は無料 — 今すぐすべての機能を解除できます。'}</Text>
           <View style={{ marginTop: 14, gap: 12 }}>
             {PRO_FEATURES.map((f) => (
               <View key={f} style={styles.payFeat}>
@@ -177,16 +178,16 @@ export default function SettingsScreen() {
           {pro ? (
             <>
               <TouchableOpacity style={[styles.payCta, { backgroundColor: tokens.color.surfaceSunken }]} activeOpacity={0.9} onPress={() => { updateSettings({ pro: false }); setPaywall(false); }}>
-                <Text style={[styles.payCtaTxt, { color: tokens.color.textSecondary }]}>Turn off Pro features</Text>
+                <Text style={[styles.payCtaTxt, { color: tokens.color.textSecondary }]}>Pro機能をオフにする</Text>
               </TouchableOpacity>
-              <Text style={styles.payNote}>A paid subscription (App Store billing) will replace early-access unlock in a later update.</Text>
+              <Text style={styles.payNote}>有料サブスクリプション（App Store課金）は今後のアップデートで早期アクセス解除に置き換わる予定です。</Text>
             </>
           ) : (
             <>
               <TouchableOpacity style={styles.payCta} activeOpacity={0.9} onPress={unlockPro}>
-                <Text style={styles.payCtaTxt}>Unlock Pro — free</Text>
+                <Text style={styles.payCtaTxt}>Proを解除する — 無料</Text>
               </TouchableOpacity>
-              <Text style={styles.payNote}>Free while Catchstack is in early access. A paid subscription is planned for a later update; the free tier stays fully usable.</Text>
+              <Text style={styles.payNote}>Catchstackが早期アクセス期間中は無料です。有料サブスクリプションは今後のアップデートで予定していますが、無料プランも引き続きご利用いただけます。</Text>
             </>
           )}
           <View style={{ height: 16 }} />
@@ -199,14 +200,14 @@ export default function SettingsScreen() {
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>Appearance</Text>
+            <Text style={styles.sheetTitle}>外観</Text>
             <TouchableOpacity onPress={() => setAppearancePicker(false)} style={styles.sheetX} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={tokens.color.textSecondary} />
             </TouchableOpacity>
           </View>
           {APPEARANCES.map((opt) => (
             <TouchableOpacity key={opt} style={styles.optRow} activeOpacity={0.7} onPress={() => { updateSettings({ appearance: opt }); setAppearancePicker(false); }}>
-              <Text style={styles.optTxt}>{opt}{opt === 'System' ? ' (match device)' : ''}</Text>
+              <Text style={styles.optTxt}>{APPEARANCE_LABEL[opt] ?? opt}{opt === 'System' ? '（端末に合わせる）' : ''}</Text>
               {appearance === opt ? <Ionicons name="checkmark" size={20} color={tokens.color.gain} /> : null}
             </TouchableOpacity>
           ))}

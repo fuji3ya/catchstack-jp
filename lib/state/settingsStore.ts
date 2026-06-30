@@ -6,12 +6,12 @@ export type AppearanceMode = 'System' | 'Light' | 'Dark';
 export interface UserSettings {
   faceId: boolean;
   pro: boolean;            // Pro entitlement (early access: free unlock)
-  currency: string;        // ISO 3-letter code (only 'USD' actually formatted today)
+  currency: string;        // ISO 3-letter code (JP build is JPY-only today)
   appearance: AppearanceMode;
 }
 
 const KEY = 'catchstack.settings.v1';
-const DEFAULTS: UserSettings = { faceId: false, pro: false, currency: 'USD', appearance: 'System' };
+const DEFAULTS: UserSettings = { faceId: false, pro: false, currency: 'JPY', appearance: 'System' };
 
 let settings: UserSettings = { ...DEFAULTS };
 let hydrated = false;

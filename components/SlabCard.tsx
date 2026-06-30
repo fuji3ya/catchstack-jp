@@ -9,10 +9,8 @@ import { GradeBadge } from '@/components/GradeBadge';
 import { catMeta, certFor } from '@/lib/design/cardPresentation';
 import { FEATURES } from '@/lib/features';
 import type { HoldingRow } from '@/lib/state/store';
+import { fmtJPY } from '@/lib/format';
 
-function fmtUSD(n: number): string {
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
 
 // Featured "Trending" card. Renders as a physical slab (white frame + grade
 // label band) when FEATURES.SHOW_SLAB_UI is true; otherwise renders a bare
@@ -86,7 +84,7 @@ export function SlabCard({ row }: { row: HoldingRow }) {
         <Text style={styles.ttl} numberOfLines={1}>{row.title}</Text>
         <Text style={styles.sset} numberOfLines={1}>{row.setName}</Text>
         <View style={styles.metaRow}>
-          <Text style={styles.val}>{fmtUSD(row.median)}</Text>
+          <Text style={styles.val}>{fmtJPY(row.median)}</Text>
           <Text style={styles.tag}>Market</Text>
         </View>
       </View>

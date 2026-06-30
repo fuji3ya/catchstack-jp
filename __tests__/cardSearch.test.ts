@@ -1,5 +1,6 @@
-// Unit tests for cardSearch.ts and userCatalog.ts / catalog.ts.
-// Uses vitest with a mocked global fetch — no real network calls.
+// Unit tests for cardSearch.ts (JP: TCGdex JP + 遊々亭 worker) and
+// userCatalog.ts / catalog.ts. Uses vitest with a mocked global fetch — no
+// real network calls.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------- helpers --------------------------------------------------------
@@ -8,7 +9,6 @@ type FetchMock = ReturnType<typeof vi.fn>;
 
 function makeFetch(responses: Map<string, unknown>): FetchMock {
   return vi.fn(async (url: string) => {
-    // Find the first matching key (substring match so we can key on domain).
     let body: unknown = null;
     for (const [key, val] of responses) {
       if (url.includes(key)) { body = val; break; }
@@ -20,155 +20,78 @@ function makeFetch(responses: Map<string, unknown>): FetchMock {
   });
 }
 
-// ---------- Pokémon mapping ------------------------------------------------
+// ---------- TCGdex JP + 遊々亭 mapping --------------------------------------
 
-describe('searchCards — Pokémon mapping', () => {
+describe('searchCards — TCGdex JP + 遊々亭 mapping', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('maps name / set / number and picks holofoil market price first', async () => {
-    const pokemonData = {
-      data: [
-        {
-          id: 'swsh1-001',
-          name: 'Charizard',
-          set: { name: 'Sword & Shield' },
-          number: '25',
-          rarity: 'Rare Holo',
-          images: { large: 'https://example.com/charizard.jpg', small: 'https://example.com/charizard-sm.jpg' },
-          tcgplayer: {
-            prices: {
-              holofoil: { market: 42.5 },
-              reverseHolofoil: { market: 10.0 },
-              normal: { market: 5.0 },
-            },
-          },
-          cardmarket: { prices: { trendPrice: 38.0 } },
-        },
+  it('maps name / localId / image and attaches the exact-match yuyu-tei sell price', async () => {
+    const tcgdexData = [
+      { id: 'SV2a-006', name: 'リザードンex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SV2a/006' },
+    ];
+    const workerData = {
+      cards: [
+        { ver: 'sv2a', id: '10006', name: 'リザードンex', number: '006/165', sellJpy: 780, buyJpy: 250 },
       ],
     };
-    // MTG returns 404 → empty array
-    const fetch = makeFetch(new Map([
-      ['pokemontcg.io', pokemonData],
-      ['scryfall.com', null],           // null → ok:false → []
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['api.tcgdex.net', tcgdexData],
+      ['catchstack-jp.starving-effort.com', workerData],
     ]));
     vi.stubGlobal('fetch', fetch);
 
     const { searchCards } = await import('@/lib/data/cardSearch');
-    const results = await searchCards('Charizard');
+    const results = await searchCards('リザードン');
 
     expect(results).toHaveLength(1);
     const card = results[0];
-    expect(card.id).toBe('swsh1-001');
+    expect(card.id).toBe('SV2a-006');
     expect(card.category).toBe('Pokemon');
-    expect(card.name).toBe('Charizard');
-    expect(card.set).toBe('Sword & Shield');
-    expect(card.number).toBe('25');
-    expect(card.rarity).toBe('Rare Holo');
-    expect(card.image).toBe('https://example.com/charizard.jpg');
-    // holofoil.market (42.5) should win over reverseHolofoil and normal
-    expect(card.marketUsd).toBe(42.5);
+    expect(card.name).toBe('リザードンex');
+    expect(card.number).toBe('006');
+    expect(card.image).toBe('https://assets.tcgdex.net/ja/SV/SV2a/006/high.png');
+    expect(card.marketJpy).toBe(780);
   });
 
-  it('falls back to reverseHolofoil → normal → cardmarket in order', async () => {
-    const pokemonData = {
-      data: [
-        {
-          id: 'swsh1-002',
-          name: 'Pikachu',
-          set: { name: 'Base Set' },
-          number: '58',
-          rarity: 'Common',
-          images: { small: 'https://example.com/pikachu-sm.jpg' },
-          tcgplayer: {
-            prices: {
-              // holofoil absent, reverseHolofoil present
-              reverseHolofoil: { market: 7.5 },
-            },
-          },
-          cardmarket: { prices: { trendPrice: 6.0 } },
-        },
+  it('does not attach a price when name matches but number does not (precision)', async () => {
+    const tcgdexData = [
+      { id: 'SV2a-006', name: 'リザードンex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SV2a/006' },
+    ];
+    // Same name, different printing/number — must NOT be treated as a match.
+    const workerData = {
+      cards: [
+        { ver: 'sv4a', id: '10071', name: 'リザードンex', number: '071/165', sellJpy: 5000, buyJpy: 2000 },
       ],
     };
-    const fetch = makeFetch(new Map([
-      ['pokemontcg.io', pokemonData],
-      ['scryfall.com', null],
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['api.tcgdex.net', tcgdexData],
+      ['catchstack-jp.starving-effort.com', workerData],
     ]));
     vi.stubGlobal('fetch', fetch);
 
     const { searchCards } = await import('@/lib/data/cardSearch');
-    const results = await searchCards('Pikachu');
-    expect(results[0].marketUsd).toBe(7.5);
-    // uses images.small when large is absent
-    expect(results[0].image).toBe('https://example.com/pikachu-sm.jpg');
+    const results = await searchCards('リザードン');
+    expect(results[0].marketJpy).toBe(0);
   });
-});
 
-// ---------- MTG mapping ----------------------------------------------------
-
-describe('searchCards — MTG mapping', () => {
-  afterEach(() => { vi.restoreAllMocks(); });
-
-  it('maps id with scry- prefix, set_name, collector_number, prices.usd', async () => {
-    const scryfallData = {
-      data: [
-        {
-          id: 'abc-123-uuid',
-          name: 'Lightning Bolt',
-          set_name: 'Limited Edition Alpha',
-          collector_number: '161',
-          rarity: 'common',
-          image_uris: { normal: 'https://cards.scryfall.io/normal/lightning-bolt.jpg' },
-          prices: { usd: '1500.00' },
-        },
+  it('strips leading zeros when matching number to localId', async () => {
+    const tcgdexData = [
+      { id: 'SVK-006', name: 'ミュウex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SVK/006' },
+    ];
+    const workerData = {
+      cards: [
+        { ver: 'svk', id: '10006', name: 'ミュウex', number: '6/078', sellJpy: 120, buyJpy: 30 },
       ],
     };
-    const fetch = makeFetch(new Map([
-      ['pokemontcg.io', { data: [] }],
-      ['scryfall.com', scryfallData],
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['api.tcgdex.net', tcgdexData],
+      ['catchstack-jp.starving-effort.com', workerData],
     ]));
     vi.stubGlobal('fetch', fetch);
 
     const { searchCards } = await import('@/lib/data/cardSearch');
-    const results = await searchCards('Lightning Bolt');
-
-    const mtgCard = results.find((c) => c.category === 'MTG');
-    expect(mtgCard).toBeDefined();
-    expect(mtgCard!.id).toBe('scry-abc-123-uuid');
-    expect(mtgCard!.category).toBe('MTG');
-    expect(mtgCard!.name).toBe('Lightning Bolt');
-    expect(mtgCard!.set).toBe('Limited Edition Alpha');
-    expect(mtgCard!.number).toBe('161');
-    expect(mtgCard!.image).toBe('https://cards.scryfall.io/normal/lightning-bolt.jpg');
-    expect(mtgCard!.marketUsd).toBe(1500);
-  });
-
-  it('uses card_faces[0].image_uris.normal when image_uris is absent', async () => {
-    const scryfallData = {
-      data: [
-        {
-          id: 'dfc-uuid',
-          name: 'Delver of Secrets',
-          set_name: 'Innistrad',
-          collector_number: '51',
-          rarity: 'common',
-          // No top-level image_uris — double-faced card
-          card_faces: [
-            { image_uris: { normal: 'https://cards.scryfall.io/normal/delver-front.jpg' } },
-            { image_uris: { normal: 'https://cards.scryfall.io/normal/delver-back.jpg' } },
-          ],
-          prices: { usd: '5.00' },
-        },
-      ],
-    };
-    const fetch = makeFetch(new Map([
-      ['pokemontcg.io', { data: [] }],
-      ['scryfall.com', scryfallData],
-    ]));
-    vi.stubGlobal('fetch', fetch);
-
-    const { searchCards } = await import('@/lib/data/cardSearch');
-    const results = await searchCards('Delver');
-    expect(results[0].image).toBe('https://cards.scryfall.io/normal/delver-front.jpg');
+    const results = await searchCards('ミュウ');
+    expect(results[0].marketJpy).toBe(120);
   });
 });
 
@@ -190,66 +113,33 @@ describe('searchCards — edge cases', () => {
     const fetch = vi.fn(async () => { throw new Error('Network error'); });
     vi.stubGlobal('fetch', fetch);
     const { searchCards } = await import('@/lib/data/cardSearch');
-    await expect(searchCards('Pikachu')).resolves.toEqual([]);
+    await expect(searchCards('ピカチュウ')).resolves.toEqual([]);
   });
 
-  it('returns Pokémon results even when MTG fetch fails', async () => {
-    let callCount = 0;
+  it('returns TCGdex results (priced 0) when the price worker fails', async () => {
+    const tcgdexData = [
+      { id: 'SV2a-094', name: 'ゲンガー', localId: '094', image: 'https://assets.tcgdex.net/ja/SV/SV2a/094' },
+    ];
     const fetch = vi.fn(async (url: string) => {
-      callCount++;
-      if (url.includes('pokemontcg')) {
-        return {
-          ok: true,
-          json: async () => ({
-            data: [
-              {
-                id: 'base1-4',
-                name: 'Charizard',
-                set: { name: 'Base Set' },
-                number: '4',
-                rarity: 'Rare Holo',
-                images: { large: 'https://example.com/c.jpg' },
-                tcgplayer: { prices: { normal: { market: 300 } } },
-              },
-            ],
-          }),
-        };
-      }
-      throw new Error('Scryfall down');
+      if (url.includes('api.tcgdex.net')) return { ok: true, json: async () => tcgdexData };
+      throw new Error('worker down');
     });
     vi.stubGlobal('fetch', fetch);
     const { searchCards } = await import('@/lib/data/cardSearch');
-    const results = await searchCards('Charizard');
+    const results = await searchCards('ゲンガー');
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].category).toBe('Pokemon');
+    expect(results[0].marketJpy).toBe(0);
   });
 
-  it('filters out entries with empty image', async () => {
-    const pokemonData = {
-      data: [
-        {
-          id: 'no-image',
-          name: 'Ghost Card',
-          set: { name: 'Test Set' },
-          number: '1',
-          rarity: 'Common',
-          images: {},           // no large or small
-          tcgplayer: { prices: {} },
-        },
-        {
-          id: 'has-image',
-          name: 'Real Card',
-          set: { name: 'Test Set' },
-          number: '2',
-          rarity: 'Common',
-          images: { large: 'https://example.com/real.jpg' },
-          tcgplayer: { prices: { normal: { market: 1.0 } } },
-        },
-      ],
-    };
-    const fetch = makeFetch(new Map([
-      ['pokemontcg.io', pokemonData],
-      ['scryfall.com', null],
+  it('filters out TCGdex entries with no image', async () => {
+    const tcgdexData = [
+      { id: 'no-image', name: 'Ghost Card', localId: '1' }, // no image field
+      { id: 'has-image', name: 'Real Card', localId: '2', image: 'https://assets.tcgdex.net/ja/test/2' },
+    ];
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['api.tcgdex.net', tcgdexData],
+      ['catchstack-jp.starving-effort.com', { cards: [] }],
     ]));
     vi.stubGlobal('fetch', fetch);
     const { searchCards } = await import('@/lib/data/cardSearch');
@@ -263,17 +153,13 @@ describe('searchCards — edge cases', () => {
 
 describe('userCatalog', () => {
   beforeEach(async () => {
-    // Reset module state between tests by re-importing fresh modules via
-    // vi.resetModules(). Because vitest caches modules, we need to clear them.
     vi.resetModules();
-    // Provide a minimal AsyncStorage stub.
     vi.doMock('@react-native-async-storage/async-storage', () => ({
       default: {
         getItem: vi.fn(async () => null),
         setItem: vi.fn(async () => {}),
       },
     }));
-    // Stub react for useSyncExternalStore
     vi.doMock('react', async (importOriginal) => {
       const actual = await importOriginal<typeof import('react')>();
       return { ...actual };
@@ -284,17 +170,17 @@ describe('userCatalog', () => {
   it('addUserCard then getUserCard resolves the added card', async () => {
     const { addUserCard, getUserCard } = await import('@/lib/data/userCatalog');
     const card = {
-      id: 'scry-test-uuid',
-      category: 'MTG' as const,
-      name: 'Test Card',
-      set: 'Test Set',
-      number: '42',
+      id: 'SV9-099',
+      category: 'Pokemon' as const,
+      name: 'テストカード',
+      set: 'テストセット',
+      number: '099',
       rarity: 'rare',
-      image: 'https://example.com/test.jpg',
-      marketUsd: 99.99,
+      image: 'https://assets.tcgdex.net/ja/test/99/high.png',
+      marketJpy: 999,
     };
     addUserCard(card);
-    expect(getUserCard('scry-test-uuid')).toEqual(card);
+    expect(getUserCard('SV9-099')).toEqual(card);
   });
 
   it('getUserCard returns undefined for unknown id', async () => {
@@ -308,7 +194,6 @@ describe('resolveCard', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.resetModules(); });
 
   it('prefers userCatalog over seed for the same id', async () => {
-    // The seed has ex13-103 (Mewtwo) — override it in userCatalog.
     vi.doMock('@react-native-async-storage/async-storage', () => ({
       default: { getItem: vi.fn(async () => null), setItem: vi.fn(async () => {}) },
     }));
@@ -321,18 +206,18 @@ describe('resolveCard', () => {
     const { resolveCard } = await import('@/lib/data/catalog');
 
     const overrideCard = {
-      id: 'ex13-103',
+      id: 'SV5K-088', // an id that also exists in the JP seed catalog
       category: 'Pokemon' as const,
-      name: 'Custom Override',
-      set: 'Override Set',
-      number: '103',
+      name: '上書きカード',
+      set: '上書きセット',
+      number: '088',
       rarity: 'Rare',
-      image: 'https://example.com/override.jpg',
-      marketUsd: 1234,
+      image: 'https://assets.tcgdex.net/ja/test/override/high.png',
+      marketJpy: 1234,
     };
     addUserCard(overrideCard);
-    const resolved = resolveCard('ex13-103');
-    expect(resolved?.name).toBe('Custom Override');
+    const resolved = resolveCard('SV5K-088');
+    expect(resolved?.name).toBe('上書きカード');
   });
 
   it('falls back to seed when id not in userCatalog', async () => {
@@ -345,10 +230,9 @@ describe('resolveCard', () => {
     });
 
     const { resolveCard } = await import('@/lib/data/catalog');
-    const resolved = resolveCard('ex13-103');
-    // Should find it in seed
+    const resolved = resolveCard('SV5K-088');
     expect(resolved).toBeDefined();
-    expect(resolved?.name).toBe('Mewtwo ★');
+    expect(resolved?.name).toBe('ゲンガーex');
   });
 
   it('returns undefined for completely unknown id', async () => {

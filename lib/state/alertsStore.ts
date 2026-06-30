@@ -44,10 +44,10 @@ function parseLegacyCond(cond: string): { type: AlertCondType; value: string } {
 // Seed = the four starter alerts (so the screen never starts empty).
 function seed(): UserAlert[] {
   return [
-    { id: 'seed_swsh7-215', catalogItemId: 'swsh7-215', type: 'above', value: '2,500', cond: 'Notify when ≥ $2,500', frequency: 'once', on: true, createdAt: '2026-06-01' },
-    { id: 'seed_ex13-103', catalogItemId: 'ex13-103', type: 'up7', value: '10', cond: 'Notify when up 10% in 7 days', frequency: 'once', on: true, createdAt: '2026-06-01' },
-    { id: 'seed_ecard2-149', catalogItemId: 'ecard2-149', type: 'high', value: '3', cond: 'Notify when within 3% of 90-day high', frequency: 'daily', on: true, createdAt: '2026-06-01' },
-    { id: 'seed_gym2-2', catalogItemId: 'gym2-2', type: 'cost', value: '20', cond: 'Notify when 20% above your cost', frequency: 'every', on: false, createdAt: '2026-06-01' },
+    { id: 'seed_SV5K-088', catalogItemId: 'SV5K-088', type: 'above', value: '8,500', cond: '¥8,500 以上で通知', frequency: 'once', on: true, createdAt: '2026-06-01' },
+    { id: 'seed_SV1V-102', catalogItemId: 'SV1V-102', type: 'up7', value: '10', cond: '7日間で 10% 上昇したら通知', frequency: 'once', on: true, createdAt: '2026-06-01' },
+    { id: 'seed_S12-079', catalogItemId: 'S12-079', type: 'high', value: '3', cond: '90日高値まで 3% に接近したら通知', frequency: 'daily', on: true, createdAt: '2026-06-01' },
+    { id: 'seed_S9-014', catalogItemId: 'S9-014', type: 'cost', value: '20', cond: '取得価格より 20% 高くなったら通知', frequency: 'every', on: false, createdAt: '2026-06-01' },
   ];
 }
 

@@ -8,10 +8,8 @@ import { GradeBadge } from '@/components/GradeBadge';
 import { catMetaForCategory } from '@/lib/design/cardPresentation';
 import { FEATURES } from '@/lib/features';
 import type { CollectionCard } from '@/lib/data/collection';
+import { fmtJPY } from '@/lib/format';
 
-function fmtUSD(n: number): string {
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
 
 // 2-column grid slab tile — ported from the mockup's .tile/.slab grid variant.
 export function CollectionTile({ card, holdingId }: { card: CollectionCard; holdingId?: string }) {
@@ -72,7 +70,7 @@ export function CollectionTile({ card, holdingId }: { card: CollectionCard; hold
         <Text style={styles.ttl} numberOfLines={1}>{card.title}</Text>
         <Text style={styles.sset} numberOfLines={1}>{card.set}</Text>
         <View style={styles.base}>
-          <Text style={styles.val}>{fmtUSD(card.marketUsd)}</Text>
+          <Text style={styles.val}>{fmtJPY(card.marketJpy)}</Text>
           <Text style={[styles.chg, { color: isGain ? tokens.color.gain : tokens.color.loss }]}>
             {(isGain ? '+' : '') + card.dayPct.toFixed(2)}%
           </Text>

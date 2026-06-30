@@ -6,10 +6,10 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme, useThemedStyles, type Theme } from '@/lib/design/theme';
 import { useDataset } from '@/lib/state/useDataset';
 import { catMeta } from '@/lib/design/cardPresentation';
+import { fmtJPY } from '@/lib/format';
 
-function money(v: number, withCents = false): string {
-  const s = Math.abs(v).toLocaleString('en-US', withCents ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
-  return (v < 0 ? '-$' : '$') + s;
+function money(v: number): string {
+  return (v < 0 ? '-' : '') + fmtJPY(Math.abs(v));
 }
 
 export default function InsightsScreen() {
@@ -46,8 +46,8 @@ export default function InsightsScreen() {
   if (!data) {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
-        <View style={styles.navbar}><Text style={styles.navTitle}>Portfolio health</Text></View>
-        <View style={styles.loading}><Text style={styles.loadingTxt}>Loading…</Text></View>
+        <View style={styles.navbar}><Text style={styles.navTitle}>ポートフォリオの状況</Text></View>
+        <View style={styles.loading}><Text style={styles.loadingTxt}>読み込み中…</Text></View>
       </SafeAreaView>
     );
   }
@@ -60,11 +60,11 @@ export default function InsightsScreen() {
           <TouchableOpacity style={styles.navbtn} onPress={() => goBack()} activeOpacity={0.7}>
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Path d="M15 5l-7 7 7 7" stroke={tokens.color.textPrimary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></Svg>
           </TouchableOpacity>
-          <Text style={styles.navTitle}>Portfolio health</Text>
+          <Text style={styles.navTitle}>ポートフォリオの状況</Text>
           <View style={styles.navbtn} />
         </View>
         <View style={styles.loading}>
-          <Text style={styles.loadingTxt}>Add a card to start tracking your portfolio's health.</Text>
+          <Text style={styles.loadingTxt}>カードを追加するとポートフォリオの状況が表示されます。</Text>
         </View>
       </SafeAreaView>
     );
@@ -78,36 +78,36 @@ export default function InsightsScreen() {
         <TouchableOpacity style={styles.navbtn} onPress={() => goBack()} activeOpacity={0.7}>
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Path d="M15 5l-7 7 7 7" stroke={tokens.color.textPrimary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></Svg>
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Portfolio health</Text>
+        <Text style={styles.navTitle}>ポートフォリオの状況</Text>
         <View style={styles.navbtn} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* hero */}
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Unrealized P/L</Text>
+          <Text style={styles.eyebrow}>含み損益</Text>
           <Text style={[styles.heroBig, { color: plUp ? tokens.color.gain : tokens.color.loss }]}>{(plUp ? '+' : '') + money(data.pl)}</Text>
           <View style={styles.heroRow}>
             <View style={[styles.plPill, { backgroundColor: plUp ? tokens.color.gainBg : tokens.color.lossBg }]}>
-              <Text style={[styles.plPillTxt, { color: plUp ? tokens.color.gain : tokens.color.loss }]}>{(plUp ? '+' : '') + data.plPct.toFixed(1)}% vs cost</Text>
+              <Text style={[styles.plPillTxt, { color: plUp ? tokens.color.gain : tokens.color.loss }]}>取得価格比 {(plUp ? '+' : '') + data.plPct.toFixed(1)}%</Text>
             </View>
-            <Text style={styles.heroMeta}>{data.count} holdings · {money(data.total)}</Text>
+            <Text style={styles.heroMeta}>{data.count}枚 · {money(data.total)}</Text>
           </View>
         </View>
 
         {/* best / worst */}
-        <Text style={styles.secTitle}>Today's movers</Text>
+        <Text style={styles.secTitle}>本日の値動き</Text>
         <View style={styles.row2}>
           {data.best && (
             <View style={styles.moverCard}>
-              <Text style={[styles.moverTag, { color: tokens.color.gain }]}>BEST</Text>
+              <Text style={[styles.moverTag, { color: tokens.color.gain }]}>値上がり</Text>
               <Text style={styles.moverName} numberOfLines={1}>{data.best.title}</Text>
               <Text style={[styles.moverPct, { color: tokens.color.gain }]}>{(data.best.dayChangePct! >= 0 ? '+' : '') + data.best.dayChangePct!.toFixed(2)}%</Text>
             </View>
           )}
           {data.worst && (
             <View style={styles.moverCard}>
-              <Text style={[styles.moverTag, { color: tokens.color.loss }]}>WORST</Text>
+              <Text style={[styles.moverTag, { color: tokens.color.loss }]}>値下がり</Text>
               <Text style={styles.moverName} numberOfLines={1}>{data.worst.title}</Text>
               <Text style={[styles.moverPct, { color: data.worst.dayChangePct! >= 0 ? tokens.color.gain : tokens.color.loss }]}>{(data.worst.dayChangePct! >= 0 ? '+' : '') + data.worst.dayChangePct!.toFixed(2)}%</Text>
             </View>
@@ -115,7 +115,7 @@ export default function InsightsScreen() {
         </View>
 
         {/* diversification */}
-        <Text style={styles.secTitle}>Diversification</Text>
+        <Text style={styles.secTitle}>カードゲーム構成</Text>
         <View style={styles.card}>
           {data.cats.map((c, i) => {
             const m = catMeta(c.tcg);
@@ -123,7 +123,7 @@ export default function InsightsScreen() {
               <View key={c.tcg} style={[styles.divRow, i > 0 && styles.divSep]}>
                 <View style={[styles.dot, { backgroundColor: m.dot }]} />
                 <Text style={styles.divName}>{m.tag}</Text>
-                <Text style={styles.divCount}>{c.count} {c.count === 1 ? 'card' : 'cards'}</Text>
+                <Text style={styles.divCount}>{c.count}枚</Text>
                 <View style={styles.barTrack}><View style={[styles.barFill, { width: `${Math.max(4, c.share)}%`, backgroundColor: m.dot }]} /></View>
                 <Text style={styles.divShare}>{c.share.toFixed(0)}%</Text>
               </View>
@@ -132,27 +132,27 @@ export default function InsightsScreen() {
         </View>
 
         {/* concentration */}
-        <Text style={styles.secTitle}>Concentration</Text>
+        <Text style={styles.secTitle}>集中度</Text>
         <View style={styles.card}>
           <View style={styles.concRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.concLabel}>Largest holding</Text>
+              <Text style={styles.concLabel}>最大保有カード</Text>
               <Text style={styles.concName}>{data.top?.title}</Text>
             </View>
             <Text style={styles.concPct}>{data.concentration.toFixed(0)}%</Text>
           </View>
           <Text style={styles.concNote}>
             {data.concentration >= 40
-              ? 'A large share of value sits in one card — concentration risk is high.'
-              : 'Value is reasonably spread across your holdings.'}
+              ? '評価額の大部分が1枚のカードに集中しています — 集中リスクが高い状態です。'
+              : '評価額は保有カード全体に適度に分散されています。'}
           </Text>
         </View>
 
         {/* confidence */}
-        <Text style={styles.secTitle}>Pricing confidence</Text>
+        <Text style={styles.secTitle}>価格の信頼度</Text>
         <View style={styles.card}>
           <View style={styles.confRow}>
-            {([['high', tokens.color.gain, 'High'], ['medium', tokens.color.gold, 'Medium'], ['low', tokens.color.loss, 'Low'], ['unknown', tokens.color.textTertiary, 'Unknown']] as const).map(([k, color, label]) => (
+            {([['high', tokens.color.gain, '高'], ['medium', tokens.color.gold, '中'], ['low', tokens.color.loss, '低'], ['unknown', tokens.color.textTertiary, '不明']] as const).map(([k, color, label]) => (
               <View key={k} style={styles.confCell}>
                 <Text style={[styles.confNum, { color }]}>{data.conf[k] ?? 0}</Text>
                 <Text style={styles.confLabel}>{label}</Text>
@@ -161,7 +161,7 @@ export default function InsightsScreen() {
           </View>
         </View>
 
-        <Text style={styles.disclaim}>Insights are computed from public reference prices and are not financial advice.</Text>
+        <Text style={styles.disclaim}>インサイトは公開されている参考価格に基づく情報であり、投資助言ではありません。</Text>
         <View style={{ height: tokens.space.xl }} />
       </ScrollView>
     </SafeAreaView>

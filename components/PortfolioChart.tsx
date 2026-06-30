@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Path, Line, Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { useTheme, useThemedStyles, type Theme } from '@/lib/design/theme';
 import type { PricePoint } from '@/lib/domain/types';
+import { fmtJPY } from '@/lib/format';
 
 // Signature portfolio chart — ports design/portfolio.html's chart exactly:
 // canned growth SERIES (fractions of the real total), nice axis steps,
@@ -41,12 +42,9 @@ function buildXLabels(range: Range): string[] {
     }
   }
 }
-const PERIOD_LABEL: Record<Range, string> = { '7D': 'Past 7 days', '30D': 'Past 30 days', '90D': 'Past 90 days', ALL: 'All time' };
-const SEG_LABEL: Record<Range, string> = { '7D': '7D', '30D': '30D', '90D': '90D', ALL: 'All' };
+const PERIOD_LABEL: Record<Range, string> = { '7D': '過去7日間', '30D': '過去30日間', '90D': '過去90日間', ALL: '全期間' };
+const SEG_LABEL: Record<Range, string> = { '7D': '7日', '30D': '30日', '90D': '90日', ALL: '全期間' };
 
-function fmtUSD(n: number): string {
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
 function niceFloor(v: number, s: number) { return Math.floor(v / s) * s; }
 function niceCeil(v: number, s: number) { return Math.ceil(v / s) * s; }
 function pickStep(range: number) {
@@ -130,7 +128,7 @@ export function PortfolioChart({ total, width, history }: { total: number; width
     <View style={styles.card}>
       <View style={styles.context}>
         <Text style={[styles.pcChange, { color: lineColor }]}>
-          {(up ? '+' : '-') + fmtUSD(Math.abs(model.chgUsd))} · {(up ? '+' : '') + model.chgPct.toFixed(1)}%
+          {(up ? '+' : '-') + fmtJPY(Math.abs(model.chgUsd))} · {(up ? '+' : '') + model.chgPct.toFixed(1)}%
         </Text>
         <Text style={styles.pcPeriod}>{PERIOD_LABEL[range]}</Text>
       </View>
@@ -167,7 +165,7 @@ export function PortfolioChart({ total, width, history }: { total: number; width
         </View>
         <View style={[styles.yaxis, { width: Y_GUTTER, height: H }]}>
           {model.gridVals.map((v, i) => (
-            <Text key={i} style={[styles.ylab, { top: model.y(v) - 6 }]}>{fmtUSD(v)}</Text>
+            <Text key={i} style={[styles.ylab, { top: model.y(v) - 6 }]}>{fmtJPY(v)}</Text>
           ))}
         </View>
       </View>

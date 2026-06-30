@@ -22,7 +22,7 @@ export function showConfirm(
     else options.onCancel?.();
   } else {
     Alert.alert(title, message, [
-      { text: options.cancelLabel ?? 'Cancel', style: 'cancel', onPress: options.onCancel },
+      { text: options.cancelLabel ?? 'キャンセル', style: 'cancel', onPress: options.onCancel },
       { text: options.confirmLabel ?? 'OK', onPress: options.onConfirm },
     ]);
   }

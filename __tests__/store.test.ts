@@ -13,7 +13,7 @@ describe('buildPortfolioView', () => {
     for (const c of d.catalog) quotes[c.id] = await provider.getQuote(c.id);
     const view = buildPortfolioView(d.holdings, catalogById, quotes);
     expect(view.rows.length).toBe(8); // seed = top 8 by market value
-    expect(view.totalValue).toBeCloseTo(18135.82, 1);
+    expect(view.totalValue).toBeCloseTo(39140, 1); // JP seed top-8 sum (¥), see lib/data/seedCards.ts
     expect(view.movers.topGainer).toBeDefined();
   });
 

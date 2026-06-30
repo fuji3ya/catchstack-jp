@@ -1,5 +1,5 @@
-// Browsable collection model — all curated cards (Pokemon + MTG today),
-// presented with grade/cert/day-move, for the Collection + Add screens.
+// Browsable collection model — JP-market curated Pokémon cards, presented
+// with grade/cert/day-move, for the Collection + Add screens.
 import { SEED_CARDS } from '@/lib/data/seedCards';
 import type { UserHolding } from '@/lib/state/holdingsStore';
 import { cleanName, gradeFor, gradeNum, dayMove, certFor } from '@/lib/design/cardPresentation';
@@ -14,7 +14,7 @@ export interface CollectionCard {
   set: string;
   number?: string;         // card number within its set (for version disambiguation)
   imageUrl: string;
-  marketUsd: number;
+  marketJpy: number;
   grade: string;
   gradeNum: string;
   cert: string;
@@ -22,17 +22,16 @@ export interface CollectionCard {
   alert: boolean;
 }
 
-// Categories actually data-backed by the bundled catalog + the live-price
-// providers (pokemontcg.io for Pokemon, Scryfall for MTG). Yu-Gi-Oh / One
-// Piece / Sports were chip placeholders in the original mockup — they have
-// neither bundled data nor a public price source plumbed yet, so showing
-// them as "supported" was misleading.
-export const COLLECTION_CATEGORIES = ['All', 'Pokemon', 'MTG'] as const;
+// JP v1 ships Pokémon only — yuyu-tei's verified price source (this seed
+// catalog + cardSearch.ts) doesn't cover MTG yet, so showing it as
+// "supported" would be misleading. Re-add 'MTG' here once a verified JP MTG
+// price source exists.
+export const COLLECTION_CATEGORIES = ['All', 'Pokemon'] as const;
 export type CollectionCategory = (typeof COLLECTION_CATEGORIES)[number];
-export const CATEGORY_LABEL: Record<string, string> = { Pokemon: 'Pokémon' };
+export const CATEGORY_LABEL: Record<string, string> = { All: 'すべて', Pokemon: 'ポケモン' };
 
 // A few cards carry a price alert (deterministic) — matches the mockup.
-const ALERTS = new Set(['swsh7-215', 'ex8-107', 'sm10-205', 'base6-11', 'mtg-the-one-ring']);
+const ALERTS = new Set(['SV5K-088', 'SV1V-102', 'S12-079', 'S9-014']);
 
 function tcgOf(category: string): string {
   return category === 'MTG' ? 'mtg' : category === 'Pokemon' ? 'pokemon' : category.toLowerCase();
@@ -50,14 +49,14 @@ export function buildCollection(): CollectionCard[] {
       set: c.set,
       number: c.number,
       imageUrl: c.image,
-      marketUsd: c.marketUsd,
+      marketJpy: c.marketJpy,
       grade,
       gradeNum: gradeNum(grade),
       cert: certFor(c.id),
       dayPct: dayMove(c.id),
       alert: ALERTS.has(c.id),
     };
-  }).sort((a, b) => b.marketUsd - a.marketUsd);
+  }).sort((a, b) => b.marketJpy - a.marketJpy);
 }
 
 // The user's OWNED collection (from the persisted holdings store).
@@ -77,7 +76,7 @@ export function buildCollectionFromHoldings(userHoldings: UserHolding[]): Collec
         set: c.set,
         number: c.number,
         imageUrl: h.frontImageUrl ?? c.image,
-        marketUsd: c.marketUsd,
+        marketJpy: c.marketJpy,
         grade: h.grade,
         gradeNum: gradeNum(h.grade),
         cert: certFor(c.id),
@@ -86,5 +85,5 @@ export function buildCollectionFromHoldings(userHoldings: UserHolding[]): Collec
       };
     })
     .filter((x): x is CollectionCard => x != null)
-    .sort((a, b) => b.marketUsd - a.marketUsd);
+    .sort((a, b) => b.marketJpy - a.marketJpy);
 }

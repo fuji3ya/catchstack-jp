@@ -27,43 +27,43 @@ function MiniSlab({ uri }: { uri: string }) {
 }
 
 const CONDITIONS = [
-  { t: 'above', label: 'Price above' },
-  { t: 'below', label: 'Price below' },
-  { t: 'up24', label: 'Up % (24h)' },
-  { t: 'up7', label: 'Up % (7d)' },
-  { t: 'down7', label: 'Down % (7d)' },
-  { t: 'cost', label: '% above your cost' },
-  { t: 'high', label: 'Near 90-day high' },
-  { t: 'conf', label: 'Confidence drops' },
+  { t: 'above', label: '価格が以上' },
+  { t: 'below', label: '価格が以下' },
+  { t: 'up24', label: '上昇率（24時間）' },
+  { t: 'up7', label: '上昇率（7日間）' },
+  { t: 'down7', label: '下落率（7日間）' },
+  { t: 'cost', label: '取得価格からの上昇率' },
+  { t: 'high', label: '90日高値に接近' },
+  { t: 'conf', label: '信頼度の低下' },
 ];
 const COND_CONFIG: Record<string, { label: string; pfx: string; sfx: string; val: string; hint: string }> = {
-  above: { label: 'Target price', pfx: '$', sfx: '', val: '2,500', hint: "You'll be notified the first time the market value reaches this price." },
-  below: { label: 'Target price', pfx: '$', sfx: '', val: '1,800', hint: "You'll be notified the first time the market value falls to this price." },
-  up24: { label: 'Percentage gain', pfx: '', sfx: '%', val: '5', hint: 'Notified when the market value rises by this much within 24 hours.' },
-  up7: { label: 'Percentage gain', pfx: '', sfx: '%', val: '10', hint: 'Notified when the market value rises by this much over 7 days.' },
-  down7: { label: 'Percentage drop', pfx: '', sfx: '%', val: '10', hint: 'Notified when the market value falls by this much over 7 days.' },
-  cost: { label: 'Above your cost by', pfx: '', sfx: '%', val: '20', hint: 'Notified when the market value is this far above your acquisition price.' },
-  high: { label: 'Within of 90-day high', pfx: '', sfx: '%', val: '3', hint: 'Notified when the market value comes within this margin of its 90-day high.' },
-  conf: { label: 'Confidence falls to', pfx: '', sfx: '', val: 'Medium', hint: 'Notified when pricing-data confidence drops below this level.' },
+  above: { label: '目標価格', pfx: '¥', sfx: '', val: '2,500', hint: '評価額がこの価格に達した最初のタイミングで通知します。' },
+  below: { label: '目標価格', pfx: '¥', sfx: '', val: '1,800', hint: '評価額がこの価格まで下落した最初のタイミングで通知します。' },
+  up24: { label: '上昇率', pfx: '', sfx: '%', val: '5', hint: '評価額が24時間以内にこの割合だけ上昇したら通知します。' },
+  up7: { label: '上昇率', pfx: '', sfx: '%', val: '10', hint: '評価額が7日間でこの割合だけ上昇したら通知します。' },
+  down7: { label: '下落率', pfx: '', sfx: '%', val: '10', hint: '評価額が7日間でこの割合だけ下落したら通知します。' },
+  cost: { label: '取得価格からの上昇率', pfx: '', sfx: '%', val: '20', hint: '評価額が取得価格よりこの割合以上高くなったら通知します。' },
+  high: { label: '90日高値までの差', pfx: '', sfx: '%', val: '3', hint: '評価額が90日高値にこの差まで接近したら通知します。' },
+  conf: { label: '信頼度がこの水準まで低下', pfx: '', sfx: '', val: '中', hint: '価格データの信頼度がこの水準を下回ったら通知します。' },
 };
 const FREQS = [
-  { f: 'once', label: 'Once' },
-  { f: 'every', label: 'Every time' },
-  { f: 'daily', label: 'Max once a day' },
+  { f: 'once', label: '1回のみ' },
+  { f: 'every', label: '毎回' },
+  { f: 'daily', label: '1日1回まで' },
 ];
 
 function relTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (isNaN(then)) return '';
   const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (s < 60) return 'now';
+  if (s < 60) return 'たった今';
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m}分前`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `${h}時間前`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return `${Math.floor(d / 7)}w ago`;
+  if (d < 7) return `${d}日前`;
+  return `${Math.floor(d / 7)}週間前`;
 }
 
 export default function AlertsScreen() {
@@ -81,7 +81,7 @@ export default function AlertsScreen() {
   const [freq, setFreq] = useState('once');
   const cfg = COND_CONFIG[cond];
   const [value, setValue] = useState(cfg.val);
-  const [pickCardId, setPickCardId] = useState<string>(typeof cardParam === 'string' && byId[cardParam] ? cardParam : 'swsh7-215');
+  const [pickCardId, setPickCardId] = useState<string>(typeof cardParam === 'string' && byId[cardParam] ? cardParam : 'SV5K-088');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // If the user arrived from the detail screen's "Set price alert" button,
@@ -106,15 +106,15 @@ export default function AlertsScreen() {
 
   function condText(t: string, v: string): string {
     switch (t) {
-      case 'above': return `Notify when ≥ $${v}`;
-      case 'below': return `Notify when ≤ $${v}`;
-      case 'up24': return `Notify when up ${v}% (24h)`;
-      case 'up7': return `Notify when up ${v}% in 7 days`;
-      case 'down7': return `Notify when down ${v}% in 7 days`;
-      case 'cost': return `Notify when ${v}% above your cost`;
-      case 'high': return `Notify when within ${v}% of 90-day high`;
-      case 'conf': return `Notify when confidence drops to ${v}`;
-      default: return `Notify on change`;
+      case 'above': return `¥${v} 以上で通知`;
+      case 'below': return `¥${v} 以下で通知`;
+      case 'up24': return `24時間で ${v}% 上昇したら通知`;
+      case 'up7': return `7日間で ${v}% 上昇したら通知`;
+      case 'down7': return `7日間で ${v}% 下落したら通知`;
+      case 'cost': return `取得価格より ${v}% 高くなったら通知`;
+      case 'high': return `90日高値まで ${v}% に接近したら通知`;
+      case 'conf': return `信頼度が ${v} まで低下したら通知`;
+      default: return `変化があれば通知`;
     }
   }
 
@@ -123,11 +123,11 @@ export default function AlertsScreen() {
     if (!card) { setSheet(false); return; }
     if (!pro && active.length >= FREE_ALERT_LIMIT) {
       showConfirm(
-        'Alert limit reached',
-        `The free tier tracks up to ${FREE_ALERT_LIMIT} alerts. Unlock Pro (free in early access) for unlimited alerts.`,
+        'アラート上限に達しました',
+        `無料プランでは最大${FREE_ALERT_LIMIT}件までアラートを設定できます。Pro（早期アクセス期間中は無料）で無制限に設定できます。`,
         {
-          confirmLabel: 'Unlock Pro',
-          cancelLabel: 'Not now',
+          confirmLabel: 'Proを解除する',
+          cancelLabel: '今はしない',
           onConfirm: () => router.push('/(tabs)/settings'),
         }
       );
@@ -147,22 +147,22 @@ export default function AlertsScreen() {
         <TouchableOpacity style={styles.navbtn} onPress={() => goBack()} activeOpacity={0.7}>
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Path d="M15 5l-7 7 7 7" stroke={tokens.color.textPrimary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /></Svg>
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Alerts</Text>
-        <TouchableOpacity style={styles.navbtn} onPress={() => setSheet(true)} activeOpacity={0.7} hitSlop={6} accessibilityRole="button" accessibilityLabel="Create a new price alert">
+        <Text style={styles.navTitle}>アラート</Text>
+        <TouchableOpacity style={styles.navbtn} onPress={() => setSheet(true)} activeOpacity={0.7} hitSlop={6} accessibilityRole="button" accessibilityLabel="新しい価格アラートを作成">
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M12 6v12M6 12h12" stroke={tokens.color.textPrimary} strokeWidth={2} strokeLinecap="round" /></Svg>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.promise}>
-          <Text style={styles.eyebrow}>Price watch</Text>
-          <Text style={styles.h1}>Never miss a moment.</Text>
-          <Text style={styles.promiseP}>Get a factual signal the instant a card hits a level you care about — no checking, no guessing.</Text>
+          <Text style={styles.eyebrow}>価格ウォッチ</Text>
+          <Text style={styles.h1}>大事な瞬間を見逃さない。</Text>
+          <Text style={styles.promiseP}>気になるカードが設定した水準に達した瞬間、確かなシグナルを受け取れます。チェックも推測も不要です。</Text>
         </View>
 
         <View style={styles.secRow}>
-          <Text style={styles.eyebrow}>Watching</Text>
-          <Text style={styles.count}>{watching} active</Text>
+          <Text style={styles.eyebrow}>ウォッチ中</Text>
+          <Text style={styles.count}>{watching}件 有効</Text>
         </View>
         <View style={styles.list}>
           {active.map((a, i) => {
@@ -174,7 +174,7 @@ export default function AlertsScreen() {
                 <View style={styles.aMain}>
                   <Text style={styles.aName} numberOfLines={1}>{c.title}</Text>
                   <Text style={styles.aCond} numberOfLines={1}>{a.cond}</Text>
-                  {a.on ? <View style={styles.watchChip}><View style={styles.watchDot} /><Text style={styles.watchTxt}>Watching</Text></View> : null}
+                  {a.on ? <View style={styles.watchChip}><View style={styles.watchDot} /><Text style={styles.watchTxt}>ウォッチ中</Text></View> : null}
                 </View>
                 <TouchableOpacity onPress={() => toggleAlert(a.id)} activeOpacity={0.8} style={[styles.toggle, a.on && styles.toggleOn]}>
                   <View style={[styles.knob, a.on && styles.knobOn]} />
@@ -187,11 +187,11 @@ export default function AlertsScreen() {
           })}
         </View>
 
-        <View style={styles.secRow}><Text style={styles.eyebrow}>Recently triggered</Text></View>
+        <View style={styles.secRow}><Text style={styles.eyebrow}>最近の通知</Text></View>
         <View style={styles.list}>
           {events.length === 0 ? (
             <View style={styles.emptyTrig}>
-              <Text style={styles.emptyTrigTxt}>No alerts have triggered yet. When a card you watch hits its level, it shows up here.</Text>
+              <Text style={styles.emptyTrigTxt}>まだアラートは発火していません。ウォッチ中のカードが設定した水準に達すると、ここに表示されます。</Text>
             </View>
           ) : (
             events.slice(0, 6).map((ev, i) => {
@@ -212,24 +212,24 @@ export default function AlertsScreen() {
         </View>
 
         {/* notification preview */}
-        <Text style={[styles.eyebrow, { paddingHorizontal: 24, paddingTop: 26 }]}>How it arrives</Text>
+        <Text style={[styles.eyebrow, { paddingHorizontal: 24, paddingTop: 26 }]}>通知の届き方</Text>
         <View style={styles.bannerPlate}>
           <View style={styles.push}>
             <View style={styles.appIcon}>
               <Svg width={18} height={18} viewBox="0 0 14 14" fill="none"><Path d="M10 3.6C9.3 2.6 8.2 2 7 2 5.3 2 4 3 4 4.5c0 1.3 1 2 2.8 2.5C9.1 7.6 10 8.4 10 9.8 10 11.2 8.6 12 7 12c-1.4 0-2.7-.7-3.3-1.8" stroke="#C8A96A" strokeWidth={1.5} strokeLinecap="round" fill="none" /></Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <View style={styles.pHead}><Text style={styles.pApp}>Catchstack</Text><Text style={styles.pTime}>{latestEvent ? relTime(events[0].at) : 'preview'}</Text></View>
+              <View style={styles.pHead}><Text style={styles.pApp}>Catchstack</Text><Text style={styles.pTime}>{latestEvent ? relTime(events[0].at) : 'プレビュー'}</Text></View>
               {latestEvent && latestEvent.card ? (
-                <Text style={styles.pBody}><Text style={styles.bold}>{latestEvent.card.title}</Text> — {latestEvent.detail}.</Text>
+                <Text style={styles.pBody}><Text style={styles.bold}>{latestEvent.card.title}</Text> — {latestEvent.detail}。</Text>
               ) : (
-                <Text style={styles.pBody}>This is how an alert arrives: <Text style={styles.bold}>your card</Text> reached the level you set.</Text>
+                <Text style={styles.pBody}>こんな風に届きます：<Text style={styles.bold}>あなたのカード</Text>が設定した水準に達しました。</Text>
               )}
             </View>
           </View>
         </View>
 
-        <Text style={styles.disclaim}>Alerts are based on public market data and are not financial advice.</Text>
+        <Text style={styles.disclaim}>アラートは公開市場データに基づく参考情報であり、投資助言ではありません。</Text>
         <View style={{ height: tokens.space.xl }} />
       </ScrollView>
 
@@ -239,7 +239,7 @@ export default function AlertsScreen() {
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>New alert</Text>
+            <Text style={styles.sheetTitle}>新しいアラート</Text>
             <TouchableOpacity onPress={() => setSheet(false)} style={styles.sheetX} activeOpacity={0.7}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none"><Path d="M6 6l12 12M18 6L6 18" stroke={tokens.color.textSecondary} strokeWidth={2.1} strokeLinecap="round" /></Svg>
             </TouchableOpacity>
@@ -247,14 +247,14 @@ export default function AlertsScreen() {
           <ScrollView showsVerticalScrollIndicator={false}>
             {pick && (
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>Card</Text>
+                <Text style={styles.fieldLabel}>カード</Text>
                 <TouchableOpacity activeOpacity={0.7} style={styles.cardpick} onPress={() => setPickerOpen((v) => !v)}>
                   <MiniSlab uri={pick.imageUrl} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cpName}>{pick.title}</Text>
                     <Text style={styles.cpSet}>{pick.set}</Text>
                   </View>
-                  <Text style={styles.cpChange}>{pickerOpen ? 'Close' : 'Change'}</Text>
+                  <Text style={styles.cpChange}>{pickerOpen ? '閉じる' : '変更'}</Text>
                 </TouchableOpacity>
                 {pickerOpen ? (
                   <ScrollView style={styles.cardPickerList} nestedScrollEnabled>
@@ -273,7 +273,7 @@ export default function AlertsScreen() {
               </View>
             )}
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Notify me when</Text>
+              <Text style={styles.fieldLabel}>通知する条件</Text>
               <View style={styles.chipWrap}>
                 {CONDITIONS.map((c) => (
                   <TouchableOpacity key={c.t} onPress={() => pickCond(c.t)} activeOpacity={0.8} style={[styles.sheetChip, cond === c.t && styles.sheetChipOn]}>
@@ -292,7 +292,7 @@ export default function AlertsScreen() {
               <Text style={styles.valHint}>{cfg.hint}</Text>
             </View>
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Frequency</Text>
+              <Text style={styles.fieldLabel}>頻度</Text>
               <View style={styles.chipWrap}>
                 {FREQS.map((f) => (
                   <TouchableOpacity key={f.f} onPress={() => setFreq(f.f)} activeOpacity={0.8} style={[styles.sheetChip, freq === f.f && styles.sheetChipOn]}>
@@ -302,12 +302,12 @@ export default function AlertsScreen() {
               </View>
             </View>
             <TouchableOpacity style={[styles.sbtn, styles.sbtnPrimary]} activeOpacity={0.9} onPress={saveAlert}>
-              <Text style={styles.sbtnPrimaryTxt}>Save alert</Text>
+              <Text style={styles.sbtnPrimaryTxt}>アラートを保存</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.sbtnGhost} activeOpacity={0.7} onPress={() => setSheet(false)}>
-              <Text style={styles.sbtnGhostTxt}>Cancel</Text>
+              <Text style={styles.sbtnGhostTxt}>キャンセル</Text>
             </TouchableOpacity>
-            <Text style={styles.sheetNote}>Alerts are based on public market data and are not financial advice.</Text>
+            <Text style={styles.sheetNote}>アラートは公開市場データに基づく参考情報であり、投資助言ではありません。</Text>
             <View style={{ height: 24 }} />
           </ScrollView>
         </View>
