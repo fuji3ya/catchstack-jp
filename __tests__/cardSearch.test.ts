@@ -118,6 +118,60 @@ describe('searchCards — TCGdex JP + 遊々亭 mapping', () => {
 
 // ---------- edge cases -----------------------------------------------------
 
+describe('searchCards — 遊々亭-only fallback (card exists at 遊々亭 but TCGdex JP has no catalog entry)', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('surfaces a 遊々亭 price with no TCGdex match as an imageless fallback result', async () => {
+    // Real case verified live 2026-07-04: TCGdex JP's SM4+ set has 0 of its
+    // 114 cards populated, so リーリエ never appears in the TCGdex list —
+    // but 遊々亭 genuinely sells it (998,000円). TCGdex returns unrelated
+    // "リーリエの..." reprints only; none matches this exact card/number.
+    const tcgdexData = [
+      { id: 'SV9-041', name: 'リーリエのアブリー', localId: '041', image: 'https://assets.tcgdex.net/ja/SV/SV9/041' },
+    ];
+    const workerData = {
+      cards: [
+        { ver: 'sm04plus', id: '10119', name: 'リーリエ', number: '119/114', sellJpy: 998000, buyJpy: 700000 },
+      ],
+    };
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['catchstack-jp.starving-effort.com', workerData],
+      ['api.tcgdex.net', tcgdexData],
+    ]));
+    vi.stubGlobal('fetch', fetch);
+
+    const { searchCards } = await import('@/lib/data/cardSearch');
+    const results = await searchCards('リーリエ');
+
+    expect(results).toHaveLength(2);
+    const fallback = results.find((c) => c.id === 'yuyu:sm04plus:10119');
+    expect(fallback).toBeDefined();
+    expect(fallback?.name).toBe('リーリエ');
+    expect(fallback?.marketJpy).toBe(998000);
+    expect(fallback?.image).toBe(''); // never hotlink 遊々亭's own card photos
+  });
+
+  it('does not create a duplicate fallback for a price already matched to a TCGdex card', async () => {
+    const tcgdexData = [
+      { id: 'SV2a-006', name: 'リザードンex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SV2a/006' },
+    ];
+    const workerData = {
+      cards: [
+        { ver: 'sv2a', id: '10006', name: 'リザードンex', number: '006/165', sellJpy: 780, buyJpy: 250 },
+      ],
+    };
+    const fetch = makeFetch(new Map<string, unknown>([
+      ['catchstack-jp.starving-effort.com', workerData],
+      ['api.tcgdex.net', tcgdexData],
+    ]));
+    vi.stubGlobal('fetch', fetch);
+
+    const { searchCards } = await import('@/lib/data/cardSearch');
+    const results = await searchCards('リザードン');
+    expect(results).toHaveLength(1);
+  });
+});
+
 describe('searchCards — edge cases', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 

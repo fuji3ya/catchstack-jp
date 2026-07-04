@@ -280,19 +280,22 @@ export default function AddScreen() {
             <View style={styles.results}>
               {results.map((c) => {
                 const cat = catMetaForCategory(c.category);
+                // Build set/#number/rarity/category — plus "画像なし" for
+                // yuyu-tei-only fallback results (real card, but the free
+                // catalog source hasn't indexed it, so there's no image).
+                const metaParts = [
+                  c.set,
+                  c.number ? `#${c.number}` : '',
+                  c.rarity,
+                  cat.tag,
+                  c.imageUrl ? '' : '画像なし',
+                ].filter(Boolean);
                 return (
                   <TouchableOpacity key={c.id} style={styles.resultRow} activeOpacity={0.7} onPress={() => selectCard(c)}>
                     <MiniSlab uri={c.imageUrl} />
                     <View style={styles.resultInfo}>
                       <Text style={styles.resultName} numberOfLines={1}>{c.title}</Text>
-                      <Text style={styles.resultMeta} numberOfLines={1}>
-                        {c.set}
-                        {/* Show set · #number · rarity for every card that has them — this
-                            disambiguates different printings of the same card name. */}
-                        {c.number ? ` · #${c.number}` : ''}
-                        {c.rarity ? ` · ${c.rarity}` : ''}
-                        {` · ${cat.tag}`}
-                      </Text>
+                      <Text style={styles.resultMeta} numberOfLines={1}>{metaParts.join(' · ')}</Text>
                     </View>
                     <Text style={styles.resultVal}>{c.marketJpy > 0 ? fmtJPY(c.marketJpy) : '—'}</Text>
                   </TouchableOpacity>

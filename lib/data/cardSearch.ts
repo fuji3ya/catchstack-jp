@@ -108,19 +108,27 @@ async function fetchCardDetails(
 
 // Fetch 遊々亭 sell/buy prices for a given query (returns every printing the
 // shop has under that name, keyed by number so the caller can match exactly).
+// ver+id are yuyu-tei's own catalog keys — kept so cards yuyu-tei sells but
+// TCGdex JP doesn't catalog (verified: e.g. リーリエ / SM4+ / 998,000円 —
+// TCGdex has 0 populated cards for that set) can still be surfaced as a
+// fallback search result instead of silently disappearing.
 async function fetchYuyuteiPrices(query: string, signal: AbortSignal): Promise<Array<{
-  name: string; number: string; sellJpy: number | null;
+  ver: string; wid: string; name: string; number: string; sellJpy: number | null;
 }>> {
   const url = `${PRICE_WORKER}?q=${encodeURIComponent(query)}`;
   const json = await fetchJson(url, signal);
   const cards = (json as { cards?: unknown })?.cards;
   if (!Array.isArray(cards)) return [];
   return (cards as Record<string, unknown>[]).map((c) => ({
+    ver: String(c.ver ?? ''),
+    wid: String(c.id ?? ''),
     name: String(c.name ?? ''),
     number: String(c.number ?? ''),
     sellJpy: typeof c.sellJpy === 'number' ? c.sellJpy : null,
   }));
 }
+
+const FALLBACK_CAP = 20;
 
 export async function searchCards(query: string, signal?: AbortSignal): Promise<SeedCard[]> {
   const q = query.trim();
@@ -141,12 +149,15 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
   const detailsResult = await Promise.allSettled([fetchCardDetails(tcgdexCards, callerSignal)]);
   const details = detailsResult[0].status === 'fulfilled' ? detailsResult[0].value : new Map();
 
-  return tcgdexCards
+  const matched = new Set<number>(); // index into `prices` consumed by a TCGdex match
+
+  const tcgdexResults = tcgdexCards
     .map((c): SeedCard | null => {
       // Exact match: same name string AND number (zero-stripped) — same
       // precision rule validated end-to-end in jpPrice.ts (6/6 unique hits).
-      const hit = prices.find((p) => p.name === c.name && normNumber(p.number) === normNumber(c.localId));
-      const marketJpy = firstFinite(hit?.sellJpy);
+      const hitIdx = prices.findIndex((p) => p.name === c.name && normNumber(p.number) === normNumber(c.localId));
+      if (hitIdx >= 0) matched.add(hitIdx);
+      const marketJpy = firstFinite(hitIdx >= 0 ? prices[hitIdx].sellJpy : null);
       const detail = details.get(c.id);
       return {
         id: c.id,
@@ -160,4 +171,27 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
       };
     })
     .filter((c): c is SeedCard => c !== null);
+
+  // Fallback: 遊々亭 prices with no TCGdex JP catalog counterpart. These are
+  // real, sellable cards (verified live) that would otherwise never appear in
+  // search just because the free catalog source hasn't indexed that set/era.
+  // No image (never re-publish 遊々亭's own card photos — price numbers +
+  // source link only, per apps/catchstack-jp-worker/src/index.js's compliance
+  // stance) and no set/rarity (yuyu-tei's search page doesn't expose them).
+  const fallbackResults: SeedCard[] = prices
+    .map((p, i) => ({ p, i }))
+    .filter(({ i, p }) => !matched.has(i) && p.sellJpy != null && p.name)
+    .slice(0, FALLBACK_CAP)
+    .map(({ p }): SeedCard => ({
+      id: `yuyu:${p.ver}:${p.wid}`,
+      category: 'Pokemon',
+      name: p.name,
+      set: '',
+      number: normNumber(p.number),
+      rarity: '',
+      image: '',
+      marketJpy: firstFinite(p.sellJpy),
+    }));
+
+  return [...tcgdexResults, ...fallbackResults];
 }
