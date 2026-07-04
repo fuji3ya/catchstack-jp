@@ -13,6 +13,8 @@ interface DatasetResult {
   byHolding: Record<string, HoldingRow>;
   pricesLive: boolean; // true once any live price has been applied
   pricesFetchedAt: number | null; // ms epoch when the live price cache was last written
+  pricesRefreshing: boolean;
+  refreshPrices: () => Promise<void>; // manual refresh — bypasses the 6h app cache
 }
 
 export function useDataset(): DatasetResult {
@@ -20,7 +22,7 @@ export function useDataset(): DatasetResult {
 
   // Live ungraded market prices keyed by catalog id (cache first, then network).
   const ownedIds = useMemo(() => userHoldings.map((h) => h.catalogItemId), [userHoldings]);
-  const { prices: overrides, fetchedAt: pricesFetchedAt } = useLivePrices(ownedIds);
+  const { prices: overrides, fetchedAt: pricesFetchedAt, refreshing: pricesRefreshing, refresh: refreshPrices } = useLivePrices(ownedIds);
   const pricesLive = Object.keys(overrides).length > 0;
 
   const dataset = useMemo(
@@ -28,7 +30,7 @@ export function useDataset(): DatasetResult {
     [userHoldings, overrides]
   );
 
-  const [result, setResult] = useState<Omit<DatasetResult, 'pricesLive' | 'pricesFetchedAt'>>({ view: null, byHolding: {} });
+  const [result, setResult] = useState<Pick<DatasetResult, 'view' | 'byHolding'>>({ view: null, byHolding: {} });
 
   useEffect(() => {
     const { catalog, holdings, history } = dataset;
@@ -52,5 +54,5 @@ export function useDataset(): DatasetResult {
     });
   }, [dataset]);
 
-  return { ...result, pricesLive, pricesFetchedAt };
+  return { ...result, pricesLive, pricesFetchedAt, pricesRefreshing, refreshPrices };
 }

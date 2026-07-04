@@ -13,6 +13,7 @@ export interface CollectionCard {
   title: string;
   set: string;
   number?: string;         // card number within its set (for version disambiguation)
+  rarity?: string;         // e.g. "Double rare", "SR" — for disambiguating same-name printings
   imageUrl: string;
   marketJpy: number;
   grade: string;
@@ -48,6 +49,7 @@ export function buildCollection(): CollectionCard[] {
       title: cleanName(c.name),
       set: c.set,
       number: c.number,
+      rarity: c.rarity || undefined,
       imageUrl: c.image,
       marketJpy: c.marketJpy,
       grade,
@@ -75,6 +77,7 @@ export function buildCollectionFromHoldings(userHoldings: UserHolding[]): Collec
         title: cleanName(c.name),
         set: c.set,
         number: c.number,
+        rarity: c.rarity || undefined,
         imageUrl: h.frontImageUrl ?? c.image,
         marketJpy: c.marketJpy,
         grade: h.grade,

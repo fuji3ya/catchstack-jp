@@ -43,6 +43,7 @@ function seedToCollectionCard(c: SeedCard): CollectionCard {
     title: cleanName(c.name),
     set: c.set,
     number: c.number,
+    rarity: c.rarity || undefined,
     imageUrl: c.image,
     marketJpy: c.marketJpy,
     grade,
@@ -269,7 +270,7 @@ export default function AddScreen() {
           {!searching && query.trim().length >= 2 && results.length === 0 && !selected && (
             <View style={styles.emptySearch}>
               <Text style={styles.emptySearchTxt}>
-                該当するカードが見つかりませんでした。Catchstackは現在ポケモンカード（TCGdex JP / 遊々亭）に対応しています。
+                該当するカードが見つかりませんでした。データ提供元(TCGdex JP)はスカーレット&バイオレット期以降の収録が中心で、サン&ムーン期以前の一部カードは未収録の場合があります。別の表記（例：フルネーム・カード番号）でもお試しください。
               </Text>
             </View>
           )}
@@ -286,9 +287,10 @@ export default function AddScreen() {
                       <Text style={styles.resultName} numberOfLines={1}>{c.title}</Text>
                       <Text style={styles.resultMeta} numberOfLines={1}>
                         {c.set}
-                        {/* Show set · #number for every card that has a number — this
+                        {/* Show set · #number · rarity for every card that has them — this
                             disambiguates different printings of the same card name. */}
                         {c.number ? ` · #${c.number}` : ''}
+                        {c.rarity ? ` · ${c.rarity}` : ''}
                         {` · ${cat.tag}`}
                       </Text>
                     </View>

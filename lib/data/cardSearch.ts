@@ -55,8 +55,13 @@ function normNumber(n: string | undefined): string {
   return (n ?? '').split('/')[0].replace(/^0+/, '') || '0';
 }
 
+const SEARCH_RESULT_CAP = 50;
+
 // Search TCGdex JP by Japanese name. Returns the catalog identity (name,
-// image, set, number) for each printing — no price yet.
+// image, localId) for each printing — the list endpoint does not include
+// set name or rarity (verified live: it only returns id/localId/name/image),
+// so those are backfilled by fetchCardDetails() below, bounded to the
+// results we actually display.
 async function searchTcgdex(query: string, signal: AbortSignal): Promise<Array<{
   id: string; name: string; localId: string; image: string; set: string; rarity: string;
 }>> {
@@ -65,7 +70,7 @@ async function searchTcgdex(query: string, signal: AbortSignal): Promise<Array<{
   if (!Array.isArray(json)) return [];
   return (json as Record<string, unknown>[])
     .filter((c) => typeof c.image === 'string' && c.image)
-    .slice(0, 24)
+    .slice(0, SEARCH_RESULT_CAP)
     .map((c) => ({
       id: String(c.id ?? ''),
       name: String(c.name ?? ''),
@@ -74,6 +79,31 @@ async function searchTcgdex(query: string, signal: AbortSignal): Promise<Array<{
       set: '',
       rarity: '',
     }));
+}
+
+// Backfill set name + rarity from the per-card detail endpoint, bounded to
+// the cards actually shown (never more than SEARCH_RESULT_CAP calls). Best
+// effort — a failed detail fetch just leaves that card's set/rarity blank,
+// it never blocks the base search result from showing.
+async function fetchCardDetails(
+  cards: Array<{ id: string }>,
+  signal: AbortSignal
+): Promise<Map<string, { set: string; rarity: string }>> {
+  const out = new Map<string, { set: string; rarity: string }>();
+  await Promise.all(
+    cards.map(async (c) => {
+      const json = await fetchJson(`${TCGDEX_BASE}/${encodeURIComponent(c.id)}`, signal);
+      if (!json || typeof json !== 'object') return;
+      const d = json as Record<string, unknown>;
+      const set = d.set && typeof d.set === 'object' ? String((d.set as Record<string, unknown>).name ?? '') : '';
+      // TCGdex literally returns the string "None" for cards with no assigned
+      // rarity classification (verified live) — treat it the same as blank.
+      const rawRarity = typeof d.rarity === 'string' ? d.rarity : '';
+      const rarity = rawRarity && rawRarity !== 'None' ? rawRarity : '';
+      if (set || rarity) out.set(c.id, { set, rarity });
+    })
+  );
+  return out;
 }
 
 // Fetch 遊々亭 sell/buy prices for a given query (returns every printing the
@@ -106,19 +136,25 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
   const tcgdexCards = tcgdexResult.status === 'fulfilled' ? tcgdexResult.value : [];
   const prices = priceResult.status === 'fulfilled' ? priceResult.value : [];
 
+  // Backfill set name + rarity (list endpoint doesn't have them) for the
+  // cards we're about to show. Best-effort — never blocks the base result.
+  const detailsResult = await Promise.allSettled([fetchCardDetails(tcgdexCards, callerSignal)]);
+  const details = detailsResult[0].status === 'fulfilled' ? detailsResult[0].value : new Map();
+
   return tcgdexCards
     .map((c): SeedCard | null => {
       // Exact match: same name string AND number (zero-stripped) — same
       // precision rule validated end-to-end in jpPrice.ts (6/6 unique hits).
       const hit = prices.find((p) => p.name === c.name && normNumber(p.number) === normNumber(c.localId));
       const marketJpy = firstFinite(hit?.sellJpy);
+      const detail = details.get(c.id);
       return {
         id: c.id,
         category: 'Pokemon',
         name: c.name,
-        set: c.set,
+        set: detail?.set || c.set,
         number: c.localId,
-        rarity: c.rarity,
+        rarity: detail?.rarity || c.rarity,
         image: `${c.image}/high.png`,
         marketJpy,
       };

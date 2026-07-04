@@ -74,6 +74,27 @@ describe('searchCards — TCGdex JP + 遊々亭 mapping', () => {
     expect(results[0].marketJpy).toBe(0);
   });
 
+  it('backfills set name + rarity from the per-card detail endpoint (list endpoint lacks them)', async () => {
+    const tcgdexData = [
+      { id: 'SV2a-006', name: 'リザードンex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SV2a/006' },
+    ];
+    const detailData = { id: 'SV2a-006', set: { name: 'ポケモンカード151' }, rarity: 'Double rare' };
+    const fetch = makeFetch(new Map<string, unknown>([
+      // more specific key first so it wins for the detail-endpoint call
+      ['cards/SV2a-006', detailData],
+      ['catchstack-jp.starving-effort.com', { cards: [] }],
+      ['api.tcgdex.net', tcgdexData],
+    ]));
+    vi.stubGlobal('fetch', fetch);
+
+    const { searchCards } = await import('@/lib/data/cardSearch');
+    const results = await searchCards('リザードン');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].set).toBe('ポケモンカード151');
+    expect(results[0].rarity).toBe('Double rare');
+  });
+
   it('strips leading zeros when matching number to localId', async () => {
     const tcgdexData = [
       { id: 'SVK-006', name: 'ミュウex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SVK/006' },

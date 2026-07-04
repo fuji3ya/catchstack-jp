@@ -4,6 +4,8 @@ import { loadCachedPrices, loadCachedFetchedAt, fetchLivePrices, type PriceMap }
 export interface LivePricesResult {
   prices: PriceMap;
   fetchedAt: number | null; // ms epoch when the cache was last written (live data timestamp)
+  refreshing: boolean;
+  refresh: () => Promise<void>; // manual refresh — bypasses the 6h app cache
 }
 
 // Returns a live ungraded market-price map (cache first, then network) for the
@@ -12,7 +14,8 @@ export interface LivePricesResult {
 // against the same real prices.
 export function useLivePrices(ids: string[]): LivePricesResult {
   const idsKey = useMemo(() => Array.from(new Set(ids)).sort().join(','), [ids]);
-  const [state, setState] = useState<LivePricesResult>({ prices: {}, fetchedAt: null });
+  const [state, setState] = useState<{ prices: PriceMap; fetchedAt: number | null }>({ prices: {}, fetchedAt: null });
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const list = idsKey ? idsKey.split(',') : [];
@@ -46,5 +49,23 @@ export function useLivePrices(ids: string[]): LivePricesResult {
     };
   }, [idsKey]);
 
-  return state;
+  const refresh = useMemo(() => async () => {
+    const list = idsKey ? idsKey.split(',') : [];
+    if (!list.length) return;
+    setRefreshing(true);
+    try {
+      const m = await fetchLivePrices(list, { force: true });
+      const at = await loadCachedFetchedAt();
+      const subset: PriceMap = {};
+      for (const id of list) if (id in m) subset[id] = m[id];
+      setState((prev) => ({
+        prices: Object.keys(subset).length ? { ...prev.prices, ...subset } : prev.prices,
+        fetchedAt: at ?? prev.fetchedAt,
+      }));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [idsKey]);
+
+  return { ...state, refreshing, refresh };
 }

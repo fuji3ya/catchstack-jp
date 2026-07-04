@@ -107,11 +107,13 @@ async function fetchYuyutei(ids: string[]): Promise<PriceMap> {
 
 // ---- public API ----------------------------------------------------------
 
-// Fetch fresh live prices for the given seed-card ids. Uses cache when fresh.
-// Always returns a (possibly partial) map; never throws.
-export async function fetchLivePrices(ids: string[]): Promise<PriceMap> {
+// Fetch fresh live prices for the given seed-card ids. Uses cache when fresh
+// (skip with `force: true` for a user-triggered manual refresh — always hits
+// the worker regardless of the 6h TTL). Always returns a (possibly partial)
+// map; never throws.
+export async function fetchLivePrices(ids: string[], opts: { force?: boolean } = {}): Promise<PriceMap> {
   const cache = await readCache();
-  if (cache && isFresh(cache.fetchedAt) && ids.every((id) => id in cache.prices)) {
+  if (!opts.force && cache && isFresh(cache.fetchedAt) && ids.every((id) => id in cache.prices)) {
     return cache.prices;
   }
 

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, useWindowDimensions, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -57,7 +57,7 @@ function formatUpdated(rows: HoldingRowData[], pricesFetchedAt: number | null): 
 export default function PortfolioScreen() {
   const styles = useThemedStyles(makeStyles);
   const tokens = useTheme();
-  const { view, pricesFetchedAt } = useDataset();
+  const { view, pricesFetchedAt, pricesRefreshing, refreshPrices } = useDataset();
   const { width } = useWindowDimensions();
 
   const trending = useMemo(() => (view ? buildTrending(view.rows) : []), [view]);
@@ -84,7 +84,14 @@ export default function PortfolioScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={pricesRefreshing} onRefresh={refreshPrices} tintColor={tokens.color.textTertiary} />
+        }
+      >
         {/* top bar */}
         <View style={styles.topbar}>
           <View style={styles.brand}>
@@ -95,10 +102,10 @@ export default function PortfolioScreen() {
             </LinearGradient>
             <Text style={styles.brandName}>Catchstack</Text>
           </View>
-          <View style={styles.updated}>
+          <TouchableOpacity style={styles.updated} onPress={refreshPrices} activeOpacity={0.6} disabled={pricesRefreshing} accessibilityRole="button" accessibilityLabel="価格を更新">
             <Text style={styles.usd}>JPY</Text>
-            <Text style={styles.ts}>{updatedLabel}</Text>
-          </View>
+            <Text style={styles.ts}>{pricesRefreshing ? '更新中…' : updatedLabel}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* hero */}
