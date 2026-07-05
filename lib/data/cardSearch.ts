@@ -55,6 +55,21 @@ function normNumber(n: string | undefined): string {
   return (n ?? '').split('/')[0].replace(/^0+/, '') || '0';
 }
 
+// Hiragana -> katakana (U+3041..U+3096 -> +0x60). Card names are registered
+// in katakana, so a hiragana query ("りーりえ") returns 0 from TCGdex while
+// the katakana form ("リーリエ") hits. Verified live 2026-07-04: りーりえ=0,
+// ぴかちゅう=0 on TCGdex; yuyu-tei's own search tolerates hiragana already.
+function toKatakana(s: string): string {
+  return s.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}
+
+// Query variants worth trying against TCGdex: the raw query plus its
+// katakana conversion when they differ.
+function queryVariants(q: string): string[] {
+  const kata = toKatakana(q);
+  return kata !== q ? [q, kata] : [q];
+}
+
 const SEARCH_RESULT_CAP = 50;
 
 // Search TCGdex JP by Japanese name. Returns the catalog identity (name,
@@ -128,7 +143,7 @@ async function fetchYuyuteiPrices(query: string, signal: AbortSignal): Promise<A
   }));
 }
 
-const FALLBACK_CAP = 20;
+const FALLBACK_CAP = 40;
 
 export async function searchCards(query: string, signal?: AbortSignal): Promise<SeedCard[]> {
   const q = query.trim();
@@ -136,13 +151,31 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
 
   const callerSignal = signal ?? new AbortController().signal;
 
-  const [tcgdexResult, priceResult] = await Promise.allSettled([
-    searchTcgdex(q, callerSignal),
+  // TCGdex: try the raw query AND its katakana form (hiragana input returns
+  // 0 from TCGdex otherwise). Worker: raw query only — yuyu-tei's own search
+  // already tolerates hiragana (verified live).
+  const variants = queryVariants(q);
+  const [priceSettled, ...tcgdexSettled] = await Promise.allSettled([
     fetchYuyuteiPrices(q, callerSignal),
+    ...variants.map((v) => searchTcgdex(v, callerSignal)),
   ]);
 
-  const tcgdexCards = tcgdexResult.status === 'fulfilled' ? tcgdexResult.value : [];
-  const prices = priceResult.status === 'fulfilled' ? priceResult.value : [];
+  // Merge variant results, dedupe by card id, keep the cap.
+  const seenIds = new Set<string>();
+  const tcgdexCards: Awaited<ReturnType<typeof searchTcgdex>> = [];
+  for (const r of tcgdexSettled) {
+    if (r.status !== 'fulfilled') continue;
+    for (const c of r.value as Awaited<ReturnType<typeof searchTcgdex>>) {
+      if (seenIds.has(c.id)) continue;
+      seenIds.add(c.id);
+      tcgdexCards.push(c);
+      if (tcgdexCards.length >= SEARCH_RESULT_CAP) break;
+    }
+    if (tcgdexCards.length >= SEARCH_RESULT_CAP) break;
+  }
+  const prices = priceSettled.status === 'fulfilled'
+    ? (priceSettled.value as Awaited<ReturnType<typeof fetchYuyuteiPrices>>)
+    : [];
 
   // Backfill set name + rarity (list endpoint doesn't have them) for the
   // cards we're about to show. Best-effort — never blocks the base result.

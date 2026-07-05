@@ -95,6 +95,28 @@ describe('searchCards — TCGdex JP + 遊々亭 mapping', () => {
     expect(results[0].rarity).toBe('Double rare');
   });
 
+  it('retries TCGdex with the katakana form when the user types hiragana', async () => {
+    // TCGdex only matches katakana names (verified live: りーりえ=0 hits,
+    // リーリエ=11). The search must convert and try the katakana variant.
+    const tcgdexData = [
+      { id: 'SV9-033', name: 'リーリエのピッピex', localId: '033', image: 'https://assets.tcgdex.net/ja/SV/SV9/033' },
+    ];
+    const kataUrl = encodeURIComponent('リーリエ');
+    const fetch = vi.fn(async (url: string) => {
+      if (url.includes('api.tcgdex.net')) {
+        // only the katakana-converted query returns data
+        return { ok: true, json: async () => (url.includes(kataUrl) ? tcgdexData : []) };
+      }
+      return { ok: true, json: async () => ({ cards: [] }) };
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    const { searchCards } = await import('@/lib/data/cardSearch');
+    const results = await searchCards('りーりえ');
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe('リーリエのピッピex');
+  });
+
   it('strips leading zeros when matching number to localId', async () => {
     const tcgdexData = [
       { id: 'SVK-006', name: 'ミュウex', localId: '006', image: 'https://assets.tcgdex.net/ja/SV/SVK/006' },
