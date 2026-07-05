@@ -128,7 +128,7 @@ async function fetchCardDetails(
 // TCGdex has 0 populated cards for that set) can still be surfaced as a
 // fallback search result instead of silently disappearing.
 async function fetchYuyuteiPrices(query: string, signal: AbortSignal): Promise<Array<{
-  ver: string; wid: string; name: string; number: string; sellJpy: number | null;
+  ver: string; wid: string; name: string; number: string; sellJpy: number | null; buyJpy: number | null;
 }>> {
   const url = `${PRICE_WORKER}?q=${encodeURIComponent(query)}`;
   const json = await fetchJson(url, signal);
@@ -140,6 +140,7 @@ async function fetchYuyuteiPrices(query: string, signal: AbortSignal): Promise<A
     name: String(c.name ?? ''),
     number: String(c.number ?? ''),
     sellJpy: typeof c.sellJpy === 'number' ? c.sellJpy : null,
+    buyJpy: typeof c.buyJpy === 'number' ? c.buyJpy : null,
   }));
 }
 
@@ -191,6 +192,7 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
       const hitIdx = prices.findIndex((p) => p.name === c.name && normNumber(p.number) === normNumber(c.localId));
       if (hitIdx >= 0) matched.add(hitIdx);
       const marketJpy = firstFinite(hitIdx >= 0 ? prices[hitIdx].sellJpy : null);
+      const buyJpy = firstFinite(hitIdx >= 0 ? prices[hitIdx].buyJpy : null);
       const detail = details.get(c.id);
       return {
         id: c.id,
@@ -201,6 +203,7 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
         rarity: detail?.rarity || c.rarity,
         image: `${c.image}/high.png`,
         marketJpy,
+        ...(buyJpy > 0 ? { buyJpy } : {}),
       };
     })
     .filter((c): c is SeedCard => c !== null);
@@ -224,6 +227,7 @@ export async function searchCards(query: string, signal?: AbortSignal): Promise<
       rarity: '',
       image: '',
       marketJpy: firstFinite(p.sellJpy),
+      ...(firstFinite(p.buyJpy) > 0 ? { buyJpy: firstFinite(p.buyJpy) } : {}),
     }));
 
   return [...tcgdexResults, ...fallbackResults];

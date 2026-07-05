@@ -57,7 +57,7 @@ function formatUpdated(rows: HoldingRowData[], pricesFetchedAt: number | null): 
 export default function PortfolioScreen() {
   const styles = useThemedStyles(makeStyles);
   const tokens = useTheme();
-  const { view, pricesFetchedAt, pricesRefreshing, refreshPrices } = useDataset();
+  const { view, buyback, pricesFetchedAt, pricesRefreshing, refreshPrices } = useDataset();
   const { width } = useWindowDimensions();
 
   const trending = useMemo(() => (view ? buildTrending(view.rows) : []), [view]);
@@ -122,6 +122,22 @@ export default function PortfolioScreen() {
             <View style={[styles.daydot, { backgroundColor: dayColor }]} />
             <Text style={[styles.daytxt, { color: dayColor }]}>{(dayUp ? '+' : '') + dayPct.toFixed(2)}% 本日</Text>
           </View>
+
+          {/* 買取参考総額 — signature: "今日売ったらいくら" (store bid, NM想定).
+              Coverage is stated honestly when some holdings have no buyback
+              price, instead of passing a partial sum off as the whole. */}
+          {buyback.covered > 0 && (
+            <View style={styles.buyCard}>
+              <View style={styles.buyLeft}>
+                <Text style={styles.buyK}>今日売ったら（買取参考）</Text>
+                <Text style={styles.buyNote}>
+                  美品(NM)想定 · 遊々亭買取価格
+                  {buyback.covered < buyback.totalCount ? ` · ${buyback.covered}/${buyback.totalCount}枚分` : ''}
+                </Text>
+              </View>
+              <Text style={styles.buyV}>{fmtJPY(buyback.totalJpy)}</Text>
+            </View>
+          )}
 
           {/* stats box */}
           <View style={styles.statsShadow}>
@@ -224,6 +240,16 @@ const makeStyles = (tokens: Theme) => StyleSheet.create({
   arrow: { fontSize: 10 },
   daytxt: { fontSize: 13.5, fontWeight: '600', letterSpacing: -0.1 },
   daydot: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.5 },
+
+  buyCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    marginTop: 14, paddingVertical: 13, paddingHorizontal: 16,
+    backgroundColor: tokens.color.goldSoft, borderRadius: 14,
+  },
+  buyLeft: { flex: 1, minWidth: 0 },
+  buyK: { fontSize: 13, fontWeight: '700', letterSpacing: -0.1, color: tokens.color.goldDeep },
+  buyNote: { fontSize: 10.5, fontWeight: '500', color: tokens.color.textTertiary, marginTop: 3 },
+  buyV: { fontSize: 21, fontWeight: '700', letterSpacing: -0.6, color: tokens.color.goldDeep },
 
   statsShadow: { marginTop: 20, borderRadius: 16, ...tokens.shadow.card },
   statsGrid: { flexDirection: 'row', gap: 1, backgroundColor: tokens.color.border, borderRadius: 16, overflow: 'hidden' },

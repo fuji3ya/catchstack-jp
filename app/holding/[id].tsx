@@ -70,7 +70,7 @@ export default function HoldingDetailScreen() {
   const tokens = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { width } = useWindowDimensions();
-  const { byHolding, pricesFetchedAt } = useDataset();
+  const { byHolding, buyPrices, pricesFetchedAt } = useDataset();
   const row = typeof id === 'string' ? byHolding[id] : undefined;
 
   const screenW = Math.min(width, 440);
@@ -105,6 +105,11 @@ export default function HoldingDetailScreen() {
   const pl = row.cost != null ? row.median - row.cost : null;
   const dataPoints = Math.min(row.history.length, 30);
   const confLabel = row.confidenceLevel.charAt(0).toUpperCase() + row.confidenceLevel.slice(1);
+
+  // 買取参考価格 (store bid, NM想定) + 販売との差 — the "if I sold today"
+  // number and how far below the ask it sits.
+  const buyJpy = buyPrices[row.catalogItemId];
+  const spreadPct = buyJpy != null && row.median > 0 ? ((row.median - buyJpy) / row.median) * 100 : null;
 
   const heroSlabW = Math.min(220, screenW * 0.58);
 
@@ -175,6 +180,18 @@ export default function HoldingDetailScreen() {
             </View>
             <Text style={styles.period}>本日</Text>
           </View>
+          {buyJpy != null && (
+            <View style={styles.buyBand}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.buyBandK}>今日売ったら（買取参考）</Text>
+                <Text style={styles.buyBandNote}>
+                  美品(NM)想定 · 遊々亭買取価格
+                  {spreadPct != null ? ` · 販売価格との差 -${spreadPct.toFixed(0)}%` : ''}
+                </Text>
+              </View>
+              <Text style={styles.buyBandV}>{money(buyJpy)}</Text>
+            </View>
+          )}
           <Text style={styles.vsrc}>参考販売価格 · 未鑑定 · 遊々亭(yuyu-tei.jp)の公開価格。現在価格のみライブ取得 — 履歴グラフの形状はイメージです。</Text>
         </View>
 
@@ -333,6 +350,14 @@ const makeStyles = (tokens: Theme) => StyleSheet.create({
   dayChg: { fontSize: 13.5, fontWeight: '600', letterSpacing: -0.1 },
   period: { fontSize: 13, color: tokens.color.textTertiary, fontWeight: '500' },
   vsrc: { fontSize: 12, color: tokens.color.textTertiary, marginTop: 12 },
+  buyBand: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    marginTop: 14, paddingVertical: 12, paddingHorizontal: 14,
+    backgroundColor: tokens.color.goldSoft, borderRadius: 12,
+  },
+  buyBandK: { fontSize: 12.5, fontWeight: '700', letterSpacing: -0.1, color: tokens.color.goldDeep },
+  buyBandNote: { fontSize: 10.5, fontWeight: '500', color: tokens.color.textTertiary, marginTop: 3 },
+  buyBandV: { fontSize: 19, fontWeight: '700', letterSpacing: -0.5, color: tokens.color.goldDeep },
 
   chartHolder: { paddingHorizontal: 24, marginTop: 22 },
 

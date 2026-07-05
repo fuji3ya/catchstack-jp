@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadCachedPrices, loadCachedFetchedAt, fetchLivePrices, type PriceMap } from '@/lib/pricing/livePrices';
+import { loadCachedPriceData, loadCachedFetchedAt, fetchLivePrices, type PriceMap, type LivePriceData } from '@/lib/pricing/livePrices';
 
 export interface LivePricesResult {
-  prices: PriceMap;
+  prices: PriceMap;    // 販売参考価格 (store ask)
+  buyPrices: PriceMap; // 買取参考価格 (store bid, NM想定)
   fetchedAt: number | null; // ms epoch when the cache was last written (live data timestamp)
   refreshing: boolean;
   refresh: () => Promise<void>; // manual refresh — bypasses the 6h app cache
 }
 
-// Returns a live ungraded market-price map (cache first, then network) for the
+type PriceState = { prices: PriceMap; buyPrices: PriceMap; fetchedAt: number | null };
+
+// Returns live ungraded market-price maps (cache first, then network) for the
 // given catalog ids, plus the timestamp of the most recent successful fetch.
 // Shared by the portfolio dataset and the alerts engine so both evaluate
 // against the same real prices.
 export function useLivePrices(ids: string[]): LivePricesResult {
   const idsKey = useMemo(() => Array.from(new Set(ids)).sort().join(','), [ids]);
-  const [state, setState] = useState<{ prices: PriceMap; fetchedAt: number | null }>({ prices: {}, fetchedAt: null });
+  const [state, setState] = useState<PriceState>({ prices: {}, buyPrices: {}, fetchedAt: null });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -22,26 +25,31 @@ export function useLivePrices(ids: string[]): LivePricesResult {
     if (!list.length) return;
     let cancelled = false;
 
-    const apply = (map: PriceMap, at: number | null) => {
+    const apply = (data: LivePriceData, at: number | null) => {
       if (cancelled) return;
-      const subset: PriceMap = {};
-      for (const id of list) if (id in map) subset[id] = map[id];
-      if (Object.keys(subset).length || at != null) {
+      const sell: PriceMap = {};
+      const buy: PriceMap = {};
+      for (const id of list) {
+        if (id in data.prices) sell[id] = data.prices[id];
+        if (id in data.buyPrices) buy[id] = data.buyPrices[id];
+      }
+      if (Object.keys(sell).length || Object.keys(buy).length || at != null) {
         setState((prev) => ({
-          prices: Object.keys(subset).length ? { ...prev.prices, ...subset } : prev.prices,
+          prices: Object.keys(sell).length ? { ...prev.prices, ...sell } : prev.prices,
+          buyPrices: Object.keys(buy).length ? { ...prev.buyPrices, ...buy } : prev.buyPrices,
           fetchedAt: at ?? prev.fetchedAt,
         }));
       }
     };
 
     // 1) instant: cached prices + their fetchedAt.
-    Promise.all([loadCachedPrices(), loadCachedFetchedAt()]).then(([m, at]) => apply(m, at));
+    Promise.all([loadCachedPriceData(), loadCachedFetchedAt()]).then(([d, at]) => apply(d, at));
     // 2) background: refresh from the live catalogs. fetchLivePrices() writes
     //    the cache on success — re-read fetchedAt afterwards so the UI clock
     //    advances to "now" when a live refresh lands.
-    fetchLivePrices(list).then(async (m) => {
+    fetchLivePrices(list).then(async (d) => {
       const at = await loadCachedFetchedAt();
-      apply(m, at);
+      apply(d, at);
     });
 
     return () => {
@@ -54,12 +62,17 @@ export function useLivePrices(ids: string[]): LivePricesResult {
     if (!list.length) return;
     setRefreshing(true);
     try {
-      const m = await fetchLivePrices(list, { force: true });
+      const d = await fetchLivePrices(list, { force: true });
       const at = await loadCachedFetchedAt();
-      const subset: PriceMap = {};
-      for (const id of list) if (id in m) subset[id] = m[id];
+      const sell: PriceMap = {};
+      const buy: PriceMap = {};
+      for (const id of list) {
+        if (id in d.prices) sell[id] = d.prices[id];
+        if (id in d.buyPrices) buy[id] = d.buyPrices[id];
+      }
       setState((prev) => ({
-        prices: Object.keys(subset).length ? { ...prev.prices, ...subset } : prev.prices,
+        prices: Object.keys(sell).length ? { ...prev.prices, ...sell } : prev.prices,
+        buyPrices: Object.keys(buy).length ? { ...prev.buyPrices, ...buy } : prev.buyPrices,
         fetchedAt: at ?? prev.fetchedAt,
       }));
     } finally {

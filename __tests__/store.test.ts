@@ -3,6 +3,21 @@ import { buildPortfolioView } from '@/lib/state/store';
 import { buildDatasetFromHoldings } from '@/lib/data/buildRealDataset';
 import { getHoldings } from '@/lib/state/holdingsStore';
 import { MockPriceProvider } from '@/lib/pricing/provider';
+import { SEED_CARDS } from '@/lib/data/seedCards';
+
+describe('seed buyback prices', () => {
+  it('every bundled seed card carries a positive 遊々亭 buyJpy (fetched live 2026-07-05)', () => {
+    for (const c of SEED_CARDS) {
+      expect(c.buyJpy, c.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('seeded top-8 holdings buyback total is the expected sum', () => {
+    const top8 = [...SEED_CARDS].sort((a, b) => b.marketJpy - a.marketJpy).slice(0, 8);
+    const total = top8.reduce((s, c) => s + (c.buyJpy ?? 0), 0);
+    expect(total).toBe(22500); // 5600+3500+3500+5000+3000+600+900+400
+  });
+});
 
 describe('buildPortfolioView', () => {
   it('aggregates totals, rows and movers from the seeded real holdings', async () => {

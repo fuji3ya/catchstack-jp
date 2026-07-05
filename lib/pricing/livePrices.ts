@@ -1,4 +1,5 @@
-// Live ungraded reference prices — 遊々亭 (yuyu-tei.jp) sell prices, JPY.
+// Live ungraded reference prices — 遊々亭 (yuyu-tei.jp), JPY.
+// Sell (販売 = store ask) AND buyback (買取 = store bid, NM想定) per card.
 //
 // These are PUBLIC, UNGRADED market figures — exactly what the app presents as
 // "reference value" (never an appraisal). They replace the bundled snapshot when
@@ -8,16 +9,19 @@
 // which itself daily-caches yuyu-tei — see apps/catchstack-jp-worker/).
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SEED_CARDS } from '@/lib/data/seedCards';
+import { resolveCard } from '@/lib/data/catalog';
 
-const CACHE_KEY = 'catchstack.prices.v1';
+// v2: adds buyPrices; key bumped so a v1-shaped cache is never misread.
+const CACHE_KEY = 'catchstack.prices.v2';
 const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const PRICE_WORKER = 'https://catchstack-jp.starving-effort.com/';
 
 export type PriceMap = Record<string, number>;
-interface CacheShape { fetchedAt: number; prices: PriceMap }
-
-const CARD_BY_ID = Object.fromEntries(SEED_CARDS.map((c) => [c.id, c]));
+export interface LivePriceData {
+  prices: PriceMap;    // 販売参考価格 (store ask)
+  buyPrices: PriceMap; // 買取参考価格 (store bid, NM想定)
+}
+interface CacheShape extends LivePriceData { fetchedAt: number }
 
 function normNumber(n: string | undefined): string {
   return (n ?? '').split('/')[0].replace(/^0+/, '') || '0';
@@ -25,16 +29,9 @@ function normNumber(n: string | undefined): string {
 
 // ---- cache ---------------------------------------------------------------
 
-export async function loadCachedPrices(): Promise<PriceMap> {
-  try {
-    const raw = await AsyncStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const c = JSON.parse(raw) as CacheShape;
-    if (!c || typeof c.fetchedAt !== 'number' || !c.prices) return {};
-    return c.prices;
-  } catch {
-    return {};
-  }
+export async function loadCachedPriceData(): Promise<LivePriceData> {
+  const c = await readCache();
+  return { prices: c?.prices ?? {}, buyPrices: c?.buyPrices ?? {} };
 }
 
 // Returns when the cached price map was last written, or null if absent.
@@ -50,15 +47,18 @@ function isFresh(fetchedAt: number): boolean {
 async function readCache(): Promise<CacheShape | null> {
   try {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
-    return raw ? (JSON.parse(raw) as CacheShape) : null;
+    if (!raw) return null;
+    const c = JSON.parse(raw) as CacheShape;
+    if (!c || typeof c.fetchedAt !== 'number' || !c.prices) return null;
+    return { fetchedAt: c.fetchedAt, prices: c.prices, buyPrices: c.buyPrices ?? {} };
   } catch {
     return null;
   }
 }
 
-async function writeCache(prices: PriceMap): Promise<void> {
+async function writeCache(data: LivePriceData): Promise<void> {
   try {
-    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), prices } satisfies CacheShape));
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), ...data } satisfies CacheShape));
   } catch {
     /* ignore */
   }
@@ -66,16 +66,19 @@ async function writeCache(prices: PriceMap): Promise<void> {
 
 // ---- upstream fetcher -----------------------------------------------------
 
-// Fetch 遊々亭 sell prices for the given seed-card ids, one worker query per
-// distinct card name (the worker returns every printing under that name; we
-// pick the exact one by number, same precision rule as cardSearch.ts).
-async function fetchYuyutei(ids: string[]): Promise<PriceMap> {
-  if (!ids.length) return {};
-  const out: PriceMap = {};
+// Fetch 遊々亭 sell + buyback prices for the given catalog ids, one worker
+// query per distinct card name (the worker returns every printing under that
+// name; we pick the exact one by number, same precision rule as cardSearch.ts).
+// Resolves ids via resolveCard — covers user-added (live-searched) cards, not
+// just the bundled seed. (The old SEED_CARDS-only lookup silently skipped
+// every user-added card, so their prices never refreshed.)
+async function fetchYuyutei(ids: string[]): Promise<LivePriceData> {
+  const out: LivePriceData = { prices: {}, buyPrices: {} };
+  if (!ids.length) return out;
   // De-dupe by name so two printings sharing a card name don't double-fetch.
   const byName = new Map<string, string[]>();
   for (const id of ids) {
-    const card = CARD_BY_ID[id];
+    const card = resolveCard(id);
     if (!card) continue;
     const list = byName.get(card.name) ?? [];
     list.push(id);
@@ -90,12 +93,13 @@ async function fetchYuyutei(ids: string[]): Promise<PriceMap> {
         });
         if (!res.ok) return;
         const json = await res.json();
-        const cards = (json?.cards ?? []) as Array<{ name?: string; number?: string; sellJpy?: number }>;
+        const cards = (json?.cards ?? []) as Array<{ name?: string; number?: string; sellJpy?: number; buyJpy?: number }>;
         for (const cardId of cardIds) {
-          const seed = CARD_BY_ID[cardId];
-          if (!seed) continue;
-          const hit = cards.find((c) => c.name === name && normNumber(c.number) === normNumber(seed.number));
-          if (hit?.sellJpy) out[cardId] = hit.sellJpy;
+          const card = resolveCard(cardId);
+          if (!card) continue;
+          const hit = cards.find((c) => c.name === name && normNumber(c.number) === normNumber(card.number));
+          if (hit?.sellJpy) out.prices[cardId] = hit.sellJpy;
+          if (hit?.buyJpy) out.buyPrices[cardId] = hit.buyJpy;
         }
       } catch {
         /* skip this name on failure */
@@ -107,18 +111,22 @@ async function fetchYuyutei(ids: string[]): Promise<PriceMap> {
 
 // ---- public API ----------------------------------------------------------
 
-// Fetch fresh live prices for the given seed-card ids. Uses cache when fresh
+// Fetch fresh live prices for the given catalog ids. Uses cache when fresh
 // (skip with `force: true` for a user-triggered manual refresh — always hits
-// the worker regardless of the 6h TTL). Always returns a (possibly partial)
-// map; never throws.
-export async function fetchLivePrices(ids: string[], opts: { force?: boolean } = {}): Promise<PriceMap> {
+// the worker regardless of the 6h TTL). Always returns (possibly partial)
+// maps; never throws.
+export async function fetchLivePrices(ids: string[], opts: { force?: boolean } = {}): Promise<LivePriceData> {
   const cache = await readCache();
   if (!opts.force && cache && isFresh(cache.fetchedAt) && ids.every((id) => id in cache.prices)) {
-    return cache.prices;
+    return { prices: cache.prices, buyPrices: cache.buyPrices };
   }
 
-  const fresh = { ...(cache?.prices ?? {}), ...(await fetchYuyutei(ids)) };
-  if (Object.keys(fresh).length) {
+  const live = await fetchYuyutei(ids);
+  const fresh: LivePriceData = {
+    prices: { ...(cache?.prices ?? {}), ...live.prices },
+    buyPrices: { ...(cache?.buyPrices ?? {}), ...live.buyPrices },
+  };
+  if (Object.keys(fresh.prices).length || Object.keys(fresh.buyPrices).length) {
     await writeCache(fresh);
   }
   return fresh;
